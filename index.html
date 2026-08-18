@@ -1,0 +1,2479 @@
+<!--
+  WEATHER TILES
+  © 2026 Yusuke Mori
+-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>WEATHER TILES</title>
+<meta name="description" content="気温・風向風速・降水確率・UV指数・気圧・凍結高度など30項目以上をタイル形式でまとめて確認できる天気アプリ。表示するカードは自由に選んでホーム画面のように並べ替えられます。">
+<link rel="canonical" href="https://weather-tiles.netlify.app/">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://weather-tiles.netlify.app/">
+<meta property="og:title" content="WEATHER TILES">
+<meta property="og:description" content="気温・風向風速・降水確率・UV指数・気圧など30項目以上をタイル形式でまとめて確認できる天気アプリ。">
+<meta property="og:site_name" content="WEATHER TILES">
+<meta property="og:image" content="https://weather-tiles.netlify.app/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="WEATHER TILES">
+<meta name="twitter:description" content="気温・風向風速・降水確率・UV指数・気圧など30項目以上をタイル形式でまとめて確認できる天気アプリ。">
+<meta name="twitter:image" content="https://weather-tiles.netlify.app/icon-512.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "WEATHER TILES",
+  "url": "https://weather-tiles.netlify.app/",
+  "description": "気温・風向風速・降水確率・UV指数・気圧など30項目以上をタイル形式でまとめて確認できる天気アプリ。",
+  "applicationCategory": "WeatherApplication",
+  "operatingSystem": "Any (Web/PWA)",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "JPY" }
+}
+</script>
+<meta name="theme-color" content="#0A1420">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Weather Tiles">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{
+  --bg:#0A1420;
+  --bg-card:#101E33;
+  --bg-card2:#16283F;
+  --line:rgba(255,255,255,0.07);
+  --accent:#4FA8FF;
+  --accent-dim:rgba(79,168,255,0.16);
+  --text:#EAF2FF;
+  --text-dim:#8CA3C4;
+  --text-faint:#5C7290;
+  --danger:#FF5C5C;
+  --radius:20px;
+  --safe-top:env(safe-area-inset-top, 0px);
+  --safe-bottom:env(safe-area-inset-bottom, 0px);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; padding:0; background:var(--bg); color:var(--text);
+  font-family:"Noto Sans JP","Hiragino Sans",system-ui,-apple-system,sans-serif;
+  overscroll-behavior-y:contain;
+}
+body{ padding-bottom: calc(24px + var(--safe-bottom)); min-height:100vh;}
+.num{font-family:"Space Grotesk", sans-serif; font-variant-numeric:tabular-nums;}
+
+/* ---------- header ---------- */
+header{
+  position:sticky; top:0; z-index:20;
+  padding: calc(14px + var(--safe-top)) 18px 12px;
+  background:linear-gradient(180deg, var(--bg) 60%, rgba(10,20,32,0.85) 90%, transparent);
+  backdrop-filter:blur(10px);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.brand{display:flex; flex-direction:column; gap:2px;}
+.brand .title{font-family:"Space Grotesk", sans-serif; font-weight:700; font-size:16px; letter-spacing:0.01em; white-space:nowrap;}
+.place-row{display:flex; align-items:center; gap:4px;}
+.brand .place{font-size:12px; color:var(--text-dim);}
+.fav-toggle-btn{
+  display:none; background:none; border:none; padding:0 2px; font-size:13px;
+  color:var(--text-faint); line-height:1;
+}
+.fav-toggle-btn.visible{display:inline-block;}
+.fav-toggle-btn.active{color:#FFC94D;}
+.icon-btn{
+  width:38px; height:38px; border-radius:12px; border:1px solid var(--line);
+  background:var(--bg-card); color:var(--text); display:flex; align-items:center; justify-content:center;
+  font-size:18px;
+}
+#doneBtn{
+  display:none; background:var(--accent); color:#06121F; font-weight:700; font-size:13px;
+  padding:8px 16px; border-radius:12px; border:none;
+}
+#doneBtn.show{display:block;}
+#editBtn.hide{display:none;}
+#headerRefreshBtn.hide{display:none;}
+#locationSearchBtn.hide{display:none;}
+#headerRefreshBtn{font-size:17px;}
+#headerRefreshBtn.spinning{opacity:0.4; pointer-events:none;}
+.reset-header-btn{
+  display:none; background:none; border:none; color:var(--danger);
+  font-size:13px; font-weight:600; padding:8px 6px;
+}
+.reset-header-btn.show{display:block;}
+
+/* ---------- grid ---------- */
+main{padding: 4px 14px 10px;}
+.app-footer{
+  text-align:center; padding:8px 14px calc(28px + var(--safe-bottom));
+  display:flex; align-items:center; justify-content:center; gap:18px;
+}
+.app-footer a{
+  font-size:12.5px; color:var(--text-faint); text-decoration:underline;
+}
+#grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:12px;
+  list-style:none; margin:0; padding:0;
+  -webkit-user-select:none; user-select:none;
+  -webkit-touch-callout:none;
+}
+.card{
+  position:relative;
+  background:var(--bg-card);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:14px 12px 12px;
+  aspect-ratio:1/1;
+  display:flex; flex-direction:column; justify-content:flex-start;
+  transition:transform .15s ease;
+  -webkit-user-select:none; user-select:none;
+  -webkit-touch-callout:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.card .label{font-size:12.5px; color:var(--text-dim); display:flex; align-items:center; gap:6px;}
+.card .label .dot{width:6px;height:6px;border-radius:50%;background:var(--accent); flex:0 0 auto;}
+.card-body{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; text-align:center; overflow:hidden;}
+.card .value{font-size:36px; font-weight:700; line-height:1.1;}
+.card .value .unit{font-size:16px; font-weight:500; color:var(--text-dim); margin-left:2px;}
+.card .sub{font-size:12.5px; color:var(--text-faint); margin-top:6px;}
+.card[data-tap="1"]{cursor:pointer;}
+.tap-hint{position:absolute; right:12px; top:14px; font-size:11px; color:var(--text-faint);}
+
+/* edit mode */
+body.editing .card{ animation:wobble 0.28s ease-in-out infinite alternate; touch-action:none; }
+body.editing .card.dragging-ghost{ animation:none; opacity:0.35; }
+body.editing .card.dragging-chosen{
+  animation:none !important;
+  transform:scale(1.06);
+  box-shadow:0 14px 32px rgba(0,0,0,0.5);
+  z-index:10;
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+body.editing .card.dragging-active{
+  animation:none !important;
+}
+@keyframes wobble{ from{transform:rotate(-0.6deg);} to{transform:rotate(0.6deg);} }
+.del-btn{
+  display:none; position:absolute; top:-7px; left:-7px; width:24px; height:24px;
+  border-radius:50%; background:var(--danger); color:#fff; border:2px solid var(--bg);
+  align-items:center; justify-content:center; font-size:14px; font-weight:700; z-index:5;
+}
+body.editing .del-btn{display:flex;}
+.add-tile{
+  border:1.5px dashed var(--line); background:transparent; border-radius:var(--radius);
+  aspect-ratio:1/1;
+  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px;
+  color:var(--text-dim); font-size:12px;
+}
+.add-tile .plus{font-size:26px; color:var(--accent);}
+
+/* ---------- compass ---------- */
+.compass-wrap{display:flex; flex-direction:column; align-items:center; gap:2px; width:100%;}
+.compass{position:relative; width:64px; height:64px; flex:0 0 auto;}
+.compass svg{width:100%; height:100%; display:block;}
+.needleData{transition:transform .6s cubic-bezier(.4,1.4,.5,1);}
+.compassRotor{transition:none;}
+.compassLetter{transition:none;}
+.compass-data{display:flex; flex-direction:column; align-items:center; margin-top:6px;}
+.compass-data .spd{font-size:24px; font-weight:700; line-height:1;}
+.compass-data .dir{font-size:11.5px; color:var(--text-dim); margin-top:3px; text-align:center;}
+.compass-hint{font-size:10px; color:var(--accent); margin-top:4px; text-align:center;}
+
+/* ---------- sun card ---------- */
+.sun-col{display:flex; flex-direction:column; gap:10px; width:100%; align-items:center;}
+.sun-col .row{display:flex; align-items:center; gap:7px; justify-content:center;}
+.sun-col .ic{font-size:17px;}
+.sun-col .t{font-size:19px; font-weight:700;}
+.sun-col .l{font-size:11.5px; color:var(--text-dim);}
+
+/* ---------- weekly (7-day compact strip) ---------- */
+.weekly-strip{display:flex; width:100%; justify-content:space-between; gap:2px;}
+.weekly-strip-day{display:flex; flex-direction:column; align-items:center; gap:2px; flex:1; min-width:0;}
+.weekly-strip-day .wd-label{font-size:9px; color:var(--text-dim); font-weight:600;}
+.weekly-strip-day .wd-ic{font-size:13px; line-height:1;}
+.weekly-strip-day .wd-hi{font-size:10.5px; font-weight:700; color:var(--text);}
+.weekly-strip-day .wd-lo{font-size:9.5px; color:var(--text-faint);}
+
+/* ---------- weekly detail sheet ---------- */
+.weekly-detail-row{
+  display:flex; align-items:center; gap:10px; padding:10px 2px; border-bottom:1px solid var(--line);
+}
+.weekly-detail-row .d{width:38px; font-size:13px; color:var(--text-dim);}
+.weekly-detail-row .ic{width:28px; font-size:18px; text-align:center;}
+.weekly-detail-row .pp{width:60px; font-size:11.5px; color:var(--accent); text-align:right; white-space:nowrap; flex:0 0 auto;}
+.weekly-detail-row .temps{flex:1; display:flex; align-items:center; gap:8px; justify-content:flex-end;}
+.weekly-detail-row .hi{font-size:14px; font-weight:600;}
+.weekly-detail-row .lo{font-size:13px; color:var(--text-faint);}
+
+/* ---------- hourly precipitation mini chart + detail ---------- */
+.precip-mini{display:flex; align-items:flex-end; gap:4px; height:46px; width:100%; justify-content:center;}
+.precip-mini .bar{width:9px; border-radius:3px 3px 0 0; background:var(--accent); opacity:0.9; min-height:2px;}
+.precip-mini-sub{margin-top:8px; font-size:12px; color:var(--text-faint);}
+
+.hourly-detail-row{display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid var(--line);}
+.hourly-detail-row .t{width:44px; font-size:12.5px; color:var(--text-dim);}
+.hourly-detail-row .bar-track{flex:1; height:8px; border-radius:4px; background:rgba(255,255,255,0.06); overflow:hidden;}
+.hourly-detail-row .bar-fill{height:100%; background:var(--accent); border-radius:4px;}
+.hourly-detail-row .pct{width:90px; font-size:12.5px; text-align:right; color:var(--text); white-space:nowrap; flex:0 0 auto;}
+
+/* ---------- pressure trend ---------- */
+.trend-arrow{font-size:32px; line-height:1;}
+.trend-label{font-size:16px; font-weight:700; margin-top:6px;}
+
+/* ---------- sheet (add card panel) ---------- */
+.overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:40; opacity:0; pointer-events:none; transition:opacity .2s;
+}
+.overlay.show{opacity:1; pointer-events:auto;}
+.sheet{
+  position:fixed; left:0; right:0; bottom:0; z-index:41;
+  background:var(--bg-card2); border-radius:22px 22px 0 0;
+  padding:16px 18px calc(20px + var(--safe-bottom));
+  transform:translateY(100%); transition:transform .28s cubic-bezier(.32,.72,0,1);
+  max-height:70vh; overflow-y:auto;
+}
+.sheet.show{transform:translateY(0);}
+.sheet h3{margin:4px 0 12px; font-size:15px; font-weight:700;}
+.sheet-tall{max-height:85vh;}
+.guide-warn{
+  background:rgba(255,201,77,0.1); border:1px solid rgba(255,201,77,0.3);
+  border-radius:14px; padding:14px 16px; margin-bottom:18px;
+}
+.guide-warn-title{font-size:13px; font-weight:700; color:#FFC94D; margin-bottom:6px;}
+.guide-warn p{margin:0; font-size:12.5px; color:var(--text-dim); line-height:1.8;}
+.guide-step{
+  background:var(--bg-card); border:1px solid var(--line); border-radius:16px;
+  padding:16px 18px; margin-bottom:12px;
+}
+.guide-step-head{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+.guide-step-num{
+  font-family:"Space Grotesk", sans-serif; font-weight:700; font-size:13px;
+  width:26px; height:26px; border-radius:50%; background:var(--accent-dim); color:var(--accent);
+  display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+}
+.guide-step-head h4{margin:0; font-size:14.5px; font-weight:700;}
+.guide-step p{margin:0; font-size:13px; color:var(--text-dim); line-height:1.8;}
+
+.guide-tabs{display:flex; gap:8px; margin-bottom:18px;}
+.guide-tab{
+  flex:1; background:var(--bg-card); border:1px solid var(--line); border-radius:12px;
+  padding:10px; font-size:13px; color:var(--text-dim); font-weight:600;
+}
+.guide-tab.active{background:var(--accent-dim); border-color:var(--accent); color:var(--accent);}
+
+.mock-safari-bar{
+  background:var(--bg-card2); border:1px solid var(--line); border-radius:12px;
+  padding:10px 14px; display:flex; align-items:center; justify-content:center; gap:10px;
+  margin-top:12px;
+}
+.mock-url{font-size:11.5px; color:var(--text-dim); font-family:"Space Grotesk", sans-serif;}
+.mock-share-icon{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:26px; height:26px; border-radius:7px; background:var(--accent); color:#06121F;
+  font-size:13px; flex:0 0 auto;
+}
+.mock-sheet{
+  background:var(--bg-card2); border:1px solid var(--line); border-radius:14px; padding:12px;
+  margin-top:12px;
+}
+.mock-sheet-row{
+  display:flex; align-items:center; gap:10px; padding:9px 6px; border-radius:9px;
+}
+.mock-sheet-row.highlight{background:rgba(79,168,255,0.14); border:1px solid rgba(79,168,255,0.4);}
+.mock-ic{
+  width:26px; height:26px; border-radius:7px; background:var(--bg-card); display:flex;
+  align-items:center; justify-content:center; font-size:13px; flex:0 0 auto;
+}
+.mock-sheet-row.highlight .mock-ic{background:var(--accent); color:#06121F;}
+.mock-label{font-size:12px; color:var(--text-dim);}
+.mock-sheet-row.highlight .mock-label{color:var(--text); font-weight:700;}
+.mock-sheet-divider{height:1px; background:var(--line); margin:4px 0;}
+.scroll-hint{
+  display:flex; align-items:center; justify-content:center;
+  font-size:10.5px; color:var(--text-faint); padding:4px 0;
+}
+#radarMap{
+  width:100%; height:52vh; border-radius:14px; overflow:hidden;
+  background:var(--bg-card);
+}
+.radar-time-label{
+  margin-top:8px; font-size:12px; color:var(--text-dim); text-align:center;
+}
+.radar-mini{
+  position:relative; width:100%; height:100%; border-radius:14px; overflow:hidden;
+  background:var(--bg-card2);
+}
+.radar-mini-base, .radar-mini-overlay{
+  position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+}
+.radar-mini-overlay{opacity:0.7;}
+.radar-mini-label{
+  position:absolute; left:0; right:0; bottom:0; padding:5px 0;
+  font-size:10px; color:#fff; text-align:center; background:rgba(0,0,0,0.45);
+}
+.radar-controls{
+  display:flex; align-items:center; gap:12px; margin-top:12px;
+}
+.radar-play-btn{
+  flex:0 0 auto; width:36px; height:36px; border-radius:50%; border:none;
+  background:var(--accent); color:#06121F; font-size:13px; display:flex;
+  align-items:center; justify-content:center;
+}
+.radar-slider{
+  flex:1; -webkit-appearance:none; appearance:none; height:4px; border-radius:2px;
+  background:var(--line); outline:none;
+}
+.radar-slider::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%;
+  background:var(--accent); cursor:pointer;
+}
+.radar-slider::-moz-range-thumb{
+  width:16px; height:16px; border-radius:50%; background:var(--accent); border:none; cursor:pointer;
+}
+.sheet-item{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 4px; border-bottom:1px solid var(--line); font-size:14px;
+}
+.sheet-item button{
+  background:var(--accent-dim); color:var(--accent); border:none; border-radius:10px;
+  padding:6px 14px; font-size:13px; font-weight:600;
+}
+.sheet-empty{color:var(--text-dim); font-size:13px; padding:18px 4px; text-align:center;}
+
+.location-search-input{
+  width:100%; box-sizing:border-box; background:var(--bg-card); border:1px solid var(--line);
+  border-radius:12px; padding:12px 14px; color:var(--text); font-size:15px; margin-bottom:10px;
+}
+.location-search-input::placeholder{color:var(--text-faint);}
+.use-gps-btn{
+  width:100%; background:var(--accent-dim); color:var(--accent); border:none; border-radius:12px;
+  padding:11px 14px; font-size:13.5px; font-weight:600; margin-bottom:6px;
+}
+.location-result{
+  display:flex; flex-direction:column; align-items:flex-start; width:100%;
+  padding:12px 4px; border-bottom:1px solid var(--line); background:none; border-left:none; border-right:none; border-top:none;
+  text-align:left;
+}
+.location-result .name{font-size:14.5px; color:var(--text); font-weight:600;}
+.location-result .sub{font-size:12px; color:var(--text-dim); margin-top:2px;}
+.fav-section-label{
+  font-size:11px; letter-spacing:0.08em; color:var(--text-faint); font-weight:700;
+  margin:14px 2px 6px;
+}
+.fav-row{
+  display:flex; align-items:center; gap:10px; width:100%;
+  padding:11px 4px; border-bottom:1px solid var(--line);
+}
+.fav-row .fav-name{
+  flex:1; background:none; border:none; text-align:left; font-size:14px; color:var(--text);
+  font-weight:600; padding:0;
+}
+.fav-row .fav-del{
+  background:none; border:none; color:var(--text-faint); font-size:13px; padding:4px 6px;
+}
+.reset-link{
+  display:block; width:100%; margin-top:18px; padding:12px 4px;
+  background:none; border:none; border-top:1px solid var(--line);
+  color:var(--danger); font-size:13.5px; font-weight:600; text-align:center;
+}
+
+/* ---------- status / loading ---------- */
+#status{
+  margin:0 14px 10px; padding:10px 14px; border-radius:14px; background:var(--bg-card);
+  color:var(--text-dim); font-size:12.5px; display:none; align-items:center; gap:8px;
+}
+#status.show{display:flex;}
+.spin{width:14px; height:14px; border-radius:50%; border:2px solid var(--text-faint); border-top-color:var(--accent); animation:spin 0.8s linear infinite; flex:0 0 auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#refreshBtn{background:none; border:none; color:var(--accent); font-size:12.5px; margin-left:auto; font-weight:600;}
+
+/* ---------- スプラッシュ画面 ---------- */
+#splash{
+  position:fixed; inset:0; z-index:999; background:var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  transition:opacity .5s ease;
+}
+#splash.hide{opacity:0; pointer-events:none;}
+
+#splashLoading{display:flex; flex-direction:column; align-items:center;}
+#splashLoading.hide{display:none;}
+#splash .splash-compass{width:88px; height:88px; margin-bottom:22px;}
+#splash .splash-title{
+  font-family:"Space Grotesk", sans-serif; font-weight:700; font-size:22px;
+  letter-spacing:0.12em; color:var(--text);
+}
+#splash .splash-needle{transform-box:view-box; transform-origin:37px 37px; animation:splashSpin 1.8s ease-in-out infinite;}
+@keyframes splashSpin{
+  0%{transform:rotate(35deg);}
+  50%{transform:rotate(395deg);}
+  100%{transform:rotate(395deg);}
+}
+
+#splashGate{display:none; flex-direction:column; align-items:center; gap:14px; padding:0 32px; width:100%; box-sizing:border-box;}
+#splashGate.show{display:flex;}
+#splashGate .splash-app-icon-wrap{
+  width:84px; height:84px; border-radius:20px; margin-bottom:4px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  overflow:hidden;
+  clip-path:inset(0 round 20px);
+  -webkit-clip-path:inset(0 round 20px);
+}
+#splashGate .splash-app-icon{
+  width:100%; height:100%; display:block;
+  transform:scale(1.1); /* 画像自体の縁に薄いハイライトがあるため、少し拡大してクロップし目立たなくする */
+}
+#sensorPermBtn{
+  width:100%; max-width:280px; margin-top:10px; padding:14px 20px;
+  background:var(--accent); color:#06121F; font-weight:700; font-size:15px;
+  border:none; border-radius:14px;
+}
+#installGuideLink{
+  margin-top:16px; font-size:12.5px; color:var(--text-dim); text-decoration:underline;
+}
+
+#splash .splash-copyright{
+  position:absolute; bottom:calc(28px + var(--safe-bottom));
+  font-size:11px; color:var(--text-faint); letter-spacing:0.03em;
+}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div id="splashLoading">
+    <svg class="splash-compass" viewBox="0 0 74 74">
+      <circle cx="37" cy="37" r="32" fill="none" stroke="#22344c" stroke-width="2"/>
+      <g stroke="#3a4f6b" stroke-width="1.5">
+        <line x1="37" y1="6" x2="37" y2="12"/>
+        <line x1="37" y1="62" x2="37" y2="68"/>
+        <line x1="6" y1="37" x2="12" y2="37"/>
+        <line x1="62" y1="37" x2="68" y2="37"/>
+      </g>
+      <text x="37" y="12" fill="#FF5C5C" font-size="8.5" font-weight="700" text-anchor="middle">N</text>
+      <text x="37" y="70" fill="#8CA3C4" font-size="8.5" font-weight="700" text-anchor="middle">S</text>
+      <text x="4" y="40" fill="#8CA3C4" font-size="8.5" font-weight="700" text-anchor="middle">W</text>
+      <text x="70" y="40" fill="#8CA3C4" font-size="8.5" font-weight="700" text-anchor="middle">E</text>
+      <g class="splash-needle">
+        <line x1="37" y1="37" x2="37" y2="14" stroke="#4FA8FF" stroke-width="3" stroke-linecap="round"/>
+        <polygon points="37,8 32,20 42,20" fill="#4FA8FF"/>
+        <circle cx="37" cy="37" r="3.5" fill="#EAF2FF"/>
+      </g>
+    </svg>
+    <div class="splash-title">WEATHER TILES</div>
+  </div>
+  <div id="splashGate">
+    <div class="splash-app-icon-wrap"><img src="icon-512.png" alt="" class="splash-app-icon"></div>
+    <div class="splash-title">WEATHER TILES</div>
+    <button id="sensorPermBtn">📍 センサーを許可</button>
+    <a id="installGuideLink" href="#">📲 ホーム画面への追加方法</a>
+  </div>
+  <div class="splash-copyright">© 2026 YUSUKE MORI</div>
+</div>
+
+<header>
+  <div class="brand">
+    <div class="title">WEATHER TILES</div>
+    <div class="place-row">
+      <div class="place" id="placeLabel">位置情報を取得中…</div>
+      <button id="favToggleBtn" class="fav-toggle-btn" aria-label="お気に入り登録"></button>
+    </div>
+  </div>
+  <div style="display:flex; gap:8px; align-items:center;">
+    <button id="resetHeaderBtn" class="reset-header-btn">初期化</button>
+    <button id="doneBtn">完了</button>
+    <button id="locationSearchBtn" class="icon-btn" aria-label="地点を検索">🔍</button>
+    <button id="headerRefreshBtn" class="icon-btn" aria-label="更新">↻</button>
+    <button id="editBtn" class="icon-btn" aria-label="編集">⚙︎</button>
+  </div>
+</header>
+
+<div id="status"><span class="spin"></span><span id="statusText">データを取得しています…</span><button id="refreshBtn">再取得</button></div>
+
+<main>
+  <ul id="grid"></ul>
+</main>
+
+<footer class="app-footer">
+  <a href="articles/">📖 天気の読み物を見る</a>
+  <a href="#" id="footerGuideLink">📲 追加方法</a>
+</footer>
+
+<div class="overlay" id="overlay"></div>
+<div class="sheet" id="sheet">
+  <h3>カードを追加</h3>
+  <div id="sheetList"></div>
+  <button id="resetBtn" class="reset-link">初期状態に戻す</button>
+</div>
+<div class="sheet" id="weeklySheet">
+  <h3>週間予報</h3>
+  <div id="weeklyList"></div>
+</div>
+<div class="sheet" id="hourlySheet">
+  <h3>時間別の降水確率(24時間)</h3>
+  <div id="hourlyList"></div>
+</div>
+<div class="sheet" id="hourlyAmountSheet">
+  <h3>時間別の降水量(24時間)</h3>
+  <div id="hourlyAmountList"></div>
+</div>
+<div class="sheet" id="locationSheet">
+  <h3>地点を検索</h3>
+  <input type="text" id="locationSearchInput" class="location-search-input" placeholder="都市名・地名で検索" autocomplete="off" autocapitalize="off" autocorrect="off">
+  <button id="useGpsBtn" class="use-gps-btn">📍 現在地に戻す</button>
+  <div id="favoritesList"></div>
+  <div id="locationResults"></div>
+</div>
+<div class="sheet" id="metricSheet">
+  <h3 id="metricSheetTitle">詳細</h3>
+  <div id="metricSheetList"></div>
+</div>
+<div class="sheet sheet-tall" id="radarSheet">
+  <h3>雨雲レーダー</h3>
+  <div id="radarMap"></div>
+  <div class="radar-controls">
+    <button id="radarPlayBtn" class="radar-play-btn" aria-label="再生">▶︎</button>
+    <input type="range" id="radarSlider" class="radar-slider" min="0" max="0" value="0" step="1">
+  </div>
+  <div id="radarTimeLabel" class="radar-time-label"></div>
+</div>
+
+<div class="sheet sheet-tall" id="installGuideSheet">
+  <h3>ホーム画面への追加方法</h3>
+
+  <div class="guide-tabs">
+    <button class="guide-tab active" data-os="ios">📱 iPhone / iPad</button>
+    <button class="guide-tab" data-os="android">🤖 Android</button>
+  </div>
+
+  <div id="guideIos">
+    <div class="guide-warn">
+      <div class="guide-warn-title">⚠️ まず確認：Safariで開いていますか？</div>
+      <p>LINE・Instagram・Xなどのアプリ内でリンクを開いている場合、「ホーム画面に追加」が出てきません。右下または右上の「•••」から<strong>「Safariで開く」</strong>を選んでから進めてください。</p>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-head"><span class="guide-step-num">1</span><h4>共有ボタンを開く</h4></div>
+      <p>お使いのiOSのバージョンによって、場所が2パターンあります。</p>
+      <p style="margin-top:10px;"><strong>① iOS 26以降の場合</strong>：画面下(または上部)の「•••」ボタンをタップ→出てきたメニューの中の「共有」を選びます。</p>
+      <p style="margin-top:8px;"><strong>② iOS 25以前の場合</strong>：画面下(iPhone)または上部(iPad)に、四角に上矢印のアイコンが直接表示されているので、それをタップします。</p>
+      <div class="mock-safari-bar">
+        <span class="mock-url">weather-tiles.netlify.app</span>
+        <span class="mock-share-icon">⇧</span>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-head"><span class="guide-step-num">2</span><h4>下にスクロールして探す</h4></div>
+      <p>共有メニューの上の方には出てきません。<strong>「ホーム画面に追加」</strong>が出るまで下にスクロールしてください。</p>
+      <div class="mock-sheet">
+        <div class="mock-sheet-row"><span class="mock-ic">📋</span><span class="mock-label">コピー</span></div>
+        <div class="mock-sheet-divider"></div>
+        <div class="mock-sheet-row"><span class="mock-ic">💬</span><span class="mock-label">メッセージ</span></div>
+        <div class="scroll-hint">↓ ここから下にスクロール ↓</div>
+        <div class="mock-sheet-divider"></div>
+        <div class="mock-sheet-row highlight"><span class="mock-ic">➕</span><span class="mock-label">ホーム画面に追加</span></div>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-head"><span class="guide-step-num">3</span><h4>「追加」をタップ</h4></div>
+      <p>名前はそのままでOK。右上の「追加」をタップすれば完了です。</p>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-head"><span class="guide-step-num">4</span><h4>ホーム画面から開き直す</h4></div>
+      <p>次回からは、追加されたアイコンから直接開いてください。位置情報などもその状態で正しく動きます。</p>
+    </div>
+  </div>
+
+  <div id="guideAndroid" style="display:none;">
+    <div class="guide-warn">
+      <div class="guide-warn-title">⚠️ まず確認：Chromeで開いていますか？</div>
+      <p>LINE・Instagram・Xなどのアプリ内で開いている場合、うまく追加できないことがあります。右上の「⋮」または共有アイコンから<strong>「ブラウザで開く」「Chromeで開く」</strong>を選んでから進めてください。</p>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-head"><span class="guide-step-num">1</span><h4>右上の「⋮」をタップ</h4></div>
+      <p>Chromeの画面右上にある、縦に3つ並んだ点のアイコン(メニュー)をタップします。</p>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-head"><span class="guide-step-num">2</span><h4>「ホーム画面に追加」を選ぶ</h4></div>
+      <p>メニューの中から<strong>「ホーム画面に追加」</strong>、または<strong>「アプリをインストール」</strong>を選んでください(表示は端末によって多少異なります)。</p>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-head"><span class="guide-step-num">3</span><h4>「追加」または「インストール」をタップ</h4></div>
+      <p>確認画面が出たら、そのまま追加・インストールしてください。</p>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-head"><span class="guide-step-num">4</span><h4>ホーム画面から開き直す</h4></div>
+      <p>次回からは、追加されたアイコンから直接開いてください。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========================= 設定 / カード定義 ========================= */
+const ALL_CARDS = [
+  {id:'wind',      label:'風向・風速'},
+  {id:'gust',      label:'突風'},
+  {id:'temp',      label:'気温'},
+  {id:'feels',     label:'体感温度'},
+  {id:'humidity',  label:'湿度'},
+  {id:'elevation', label:'標高'},
+  {id:'precipProb',label:'降水確率'},
+  {id:'hourlyPrecip',label:'時間別降水確率'},
+  {id:'hourlyPrecipAmount',label:'時間別降水量'},
+  {id:'precip',    label:'降水量'},
+  {id:'cloud',     label:'雲量'},
+  {id:'pressure',  label:'気圧'},
+  {id:'pressureTrend',label:'気圧トレンド'},
+  {id:'sun',       label:'日の出・日の入'},
+  {id:'sunshine',  label:'日照時間'},
+  {id:'uv',        label:'UV指数'},
+  {id:'todayWeather',label:'今日の天気'},
+  {id:'weekly',    label:'週間天気'},
+  {id:'thunder',   label:'雷注意報'},
+  {id:'cape',      label:'大気不安定度'},
+  {id:'visibility',label:'視程'},
+  {id:'dewpoint',  label:'露点'},
+  {id:'snow',      label:'積雪'},
+  {id:'airQuality',label:'PM2.5・黄砂'},
+  {id:'moon',      label:'月齢'},
+  {id:'freezingLevel',label:'凍結高度'},
+  {id:'solarRadiation',label:'日射量'},
+  {id:'soilTemp',  label:'地表温度'},
+  {id:'waveHeight',label:'波浪'},
+  {id:'rainRadar', label:'雨雲レーダー'},
+  {id:'affiliateSuggestion', label:'おすすめアイテム'},
+  {id:'heatIllness', label:'熱中症情報'},
+  {id:'seaTemp',     label:'海水温'},
+  {id:'laundryIndex',label:'洗濯指数'},
+  {id:'umbrellaIndex',label:'傘指数'},
+  {id:'clothingIndex',label:'服装指数'},
+  {id:'drynessIndex', label:'乾燥指数'},
+  {id:'stargazingIndex',label:'星空指数'},
+  {id:'weatherWarning', label:'気象警報'},
+  {id:'aqi',          label:'総合大気質指数'},
+  {id:'ozone',        label:'オゾン濃度'},
+  {id:'waveBreakdown',label:'うねり・風浪'},
+  {id:'dayLength',    label:'昼の長さ'},
+  {id:'precipHours',  label:'今日の降水時間'},
+];
+const TAPPABLE = [
+  'weekly','hourlyPrecip','hourlyPrecipAmount',
+  'temp','feels','humidity','wind','gust','cloud','pressure','pressureTrend',
+  'uv','visibility','dewpoint','cape','airQuality',
+  'precipProb','precip','todayWeather',
+  'freezingLevel','solarRadiation','soilTemp','waveHeight','rainRadar','affiliateSuggestion','seaTemp','aqi','ozone'
+];
+// タップで開く詳細シートの対応表（週間予報・時間別降水は専用シートを持つので除く）
+const METRIC_CONFIG = {
+  temp:      { title:'気温(24時間)',      key:'temp',      unit:'℃',     decimals:1 },
+  feels:     { title:'体感温度(24時間)',   key:'feels',     unit:'℃',     decimals:1 },
+  humidity:  { title:'湿度(24時間)',       key:'humidity',  unit:'%',     decimals:0 },
+  wind:      { title:'風速(24時間)',       key:'wind',      unit:'m/s',   decimals:1, dirKey:'windDir' },
+  gust:      { title:'突風(24時間)',       key:'gust',      unit:'m/s',   decimals:1 },
+  cloud:     { title:'雲量(24時間)',       key:'cloud',     unit:'%',     decimals:0 },
+  pressure:  { title:'気圧(24時間)',       key:'pressure',  unit:'hPa',   decimals:0 },
+  pressureTrend:{ title:'気圧(24時間)',    key:'pressure',  unit:'hPa',   decimals:0 },
+  uv:        { title:'UV指数(24時間)',     key:'uv',        unit:'',      decimals:1 },
+  visibility:{ title:'視程(24時間)',       key:'visibility',unit:'km',    decimals:1, transform:v=>v/1000 },
+  dewpoint:  { title:'露点(24時間)',       key:'dewpoint',  unit:'℃',     decimals:1 },
+  freezingLevel:{ title:'凍結高度(24時間)',key:'freezingLevel', unit:'m',    decimals:0 },
+  solarRadiation:{ title:'日射量(24時間)', key:'solarRadiation',unit:'W/m²', decimals:0 },
+  soilTemp:  { title:'地表温度(24時間)',   key:'soilTemp',  unit:'℃',     decimals:1 },
+  waveHeight:{ title:'波高(24時間)',       key:'waveHeight',unit:'m',     decimals:1 },
+  seaTemp:{   title:'海水温(24時間)',      key:'seaTemp',   unit:'℃',     decimals:1 },
+  aqi:{       title:'総合大気質指数(24時間)', key:'aqi',    unit:'',      decimals:0 },
+  ozone:{     title:'オゾン濃度(24時間)',   key:'ozone',     unit:'µg/m³', decimals:0 },
+  cape:      { title:'大気不安定度(24時間)',key:'cape',      unit:'J/kg',  decimals:0 },
+  airQuality:{ title:'PM2.5(24時間)',      key:'airQuality',unit:'µg/m³', decimals:0 },
+};
+const CARD_MAP = Object.fromEntries(ALL_CARDS.map(c=>[c.id,c]));
+const DEFAULT_ORDER = [
+  'todayWeather','weatherWarning','temp','feels','humidity','heatIllness',
+  'wind','gust','rainRadar',
+  'precipProb','hourlyPrecip','precip','hourlyPrecipAmount','precipHours','weekly',
+  'thunder','cape','freezingLevel',
+  'cloud','pressure','pressureTrend',
+  'sun','sunshine','dayLength','uv','solarRadiation','moon',
+  'laundryIndex','umbrellaIndex','clothingIndex','drynessIndex','stargazingIndex',
+  'elevation','visibility','dewpoint','soilTemp',
+  'airQuality','aqi','ozone',
+  'snow','waveHeight','waveBreakdown','seaTemp',
+  'affiliateSuggestion'
+];
+// 「おすすめアイテム」だけは広告色があるため、初期状態ではオフ（追加したい人だけ表示）にする
+const DEFAULT_ENABLED = ALL_CARDS.map(c => c.id);
+
+const STORE_KEY = 'gc_conditions_settings_v1';
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) throw 0;
+    const s = JSON.parse(raw);
+    if(!Array.isArray(s.order) || !Array.isArray(s.enabled)) throw 0;
+    // include any newly-added card ids not yet known to this user (and show them by default)
+    ALL_CARDS.forEach(c=>{
+      const isNewToUser = !s.order.includes(c.id);
+      if(isNewToUser){
+        s.order.push(c.id);
+        s.enabled.push(c.id);
+      }
+    });
+    // affiliateSuggestionは以前は初期オフだったため、既存ユーザーでも
+    // 追加済み(order)だが未表示(enabled)なままの場合は、ここで有効化する
+    if(s.order.includes('affiliateSuggestion') && !s.enabled.includes('affiliateSuggestion')){
+      s.enabled.push('affiliateSuggestion');
+    }
+    return s;
+  }catch(e){
+    return {order:[...DEFAULT_ORDER], enabled:[...DEFAULT_ENABLED]};
+  }
+}
+function saveSettings(){
+  localStorage.setItem(STORE_KEY, JSON.stringify(settings));
+}
+let settings = loadSettings();
+
+/* ========================= 状態 ========================= */
+let weatherData = null;
+let editing = false;
+let sortable = null;
+let compassActive = false;
+
+/* ========================= DOM ========================= */
+const grid = document.getElementById('grid');
+const editBtn = document.getElementById('editBtn');
+const locationSearchBtn = document.getElementById('locationSearchBtn');
+const doneBtn = document.getElementById('doneBtn');
+const resetHeaderBtn = document.getElementById('resetHeaderBtn');
+const headerRefreshBtn = document.getElementById('headerRefreshBtn');
+const overlay = document.getElementById('overlay');
+const sheet = document.getElementById('sheet');
+const sheetList = document.getElementById('sheetList');
+const weeklySheet = document.getElementById('weeklySheet');
+const weeklyList = document.getElementById('weeklyList');
+const hourlySheet = document.getElementById('hourlySheet');
+const hourlyList = document.getElementById('hourlyList');
+const hourlyAmountSheet = document.getElementById('hourlyAmountSheet');
+const hourlyAmountList = document.getElementById('hourlyAmountList');
+const metricSheet = document.getElementById('metricSheet');
+const metricSheetTitle = document.getElementById('metricSheetTitle');
+const metricSheetList = document.getElementById('metricSheetList');
+const radarSheet = document.getElementById('radarSheet');
+const radarTimeLabel = document.getElementById('radarTimeLabel');
+const statusEl = document.getElementById('status');
+const statusText = document.getElementById('statusText');
+const placeLabel = document.getElementById('placeLabel');
+
+/* ========================= 天気コード → 表示 ========================= */
+function weatherIcon(code){
+  if(code===0) return '☀️';
+  if([1,2].includes(code)) return '🌤️';
+  if(code===3) return '☁️';
+  if([45,48].includes(code)) return '🌫️';
+  if([51,53,55,56,57].includes(code)) return '🌦️';
+  if([61,63,65,66,67,80,81,82].includes(code)) return '🌧️';
+  if([71,73,75,77,85,86].includes(code)) return '🌨️';
+  if([95,96,99].includes(code)) return '⛈️';
+  return '☁️';
+}
+function weatherText(code){
+  if(code===0) return '快晴';
+  if([1,2].includes(code)) return '晴れ';
+  if(code===3) return '曇り';
+  if([45,48].includes(code)) return '霧';
+  if([51,53,55,56,57].includes(code)) return '霧雨';
+  if([61,63,65,66,67,80,81,82].includes(code)) return '雨';
+  if([71,73,75,77,85,86].includes(code)) return '雪';
+  if([95,96,99].includes(code)) return '雷雨';
+  return '曇り';
+}
+const DIRS = ['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
+function dirLabel(deg){ return DIRS[Math.round(deg/22.5)%16]; }
+function fmtDay(dateStr, idx){
+  const d = new Date(dateStr+'T00:00:00');
+  if(idx===0) return '今日';
+  return ['日','月','火','水','木','金','土'][d.getDay()]+'曜';
+}
+
+/* ========================= カード描画 ========================= */
+function cardShell(id, label, bodyHtml){
+  const tappable = TAPPABLE.includes(id);
+  return `<li class="card" data-id="${id}" data-tap="${tappable?1:0}">
+    <button class="del-btn" data-del="${id}">✕</button>
+    <div class="label"><span class="dot"></span>${label}</div>
+    ${tappable ? '<span class="tap-hint">›</span>' : ''}
+    <div class="card-body">${bodyHtml}</div>
+  </li>`;
+}
+
+function renderCardBody(id){
+  const w = weatherData;
+  if(!w) return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+  const cur = w.current, daily = w.daily;
+
+  switch(id){
+    case 'wind': {
+      const spd = cur.wind_speed_10m, dir = cur.wind_direction_10m;
+      const arrowDeg = dir + 180; // 吹いていく方向を指す
+      return `<div class="compass-wrap">
+        <div class="compass">
+          <svg viewBox="0 0 74 74">
+            <g class="compassRotor" style="transform-box:view-box; transform-origin:37px 37px;">
+              <circle cx="37" cy="37" r="32" fill="none" stroke="#22344c" stroke-width="2"/>
+              <g stroke="#3a4f6b" stroke-width="1.5">
+                <line x1="37" y1="6" x2="37" y2="12"/>
+                <line x1="37" y1="62" x2="37" y2="68"/>
+                <line x1="6" y1="37" x2="12" y2="37"/>
+                <line x1="62" y1="37" x2="68" y2="37"/>
+              </g>
+              <g class="compassLetter" style="transform-box:view-box; transform-origin:37px 12px;">
+                <text x="37" y="12" fill="#FF5C5C" font-size="8.5" font-weight="700" text-anchor="middle">N</text>
+              </g>
+              <g class="compassLetter" style="transform-box:view-box; transform-origin:37px 70px;">
+                <text x="37" y="70" fill="#8CA3C4" font-size="8.5" font-weight="700" text-anchor="middle">S</text>
+              </g>
+              <g class="compassLetter" style="transform-box:view-box; transform-origin:4px 40px;">
+                <text x="4" y="40" fill="#8CA3C4" font-size="8.5" font-weight="700" text-anchor="middle">W</text>
+              </g>
+              <g class="compassLetter" style="transform-box:view-box; transform-origin:70px 40px;">
+                <text x="70" y="40" fill="#8CA3C4" font-size="8.5" font-weight="700" text-anchor="middle">E</text>
+              </g>
+              <g class="needleData" style="transform-box:view-box; transform-origin:37px 37px; transform:rotate(${arrowDeg}deg);">
+                <line x1="37" y1="37" x2="37" y2="14" stroke="#4FA8FF" stroke-width="3" stroke-linecap="round"/>
+                <polygon points="37,8 32,20 42,20" fill="#4FA8FF"/>
+                <circle cx="37" cy="37" r="3.5" fill="#EAF2FF"/>
+              </g>
+            </g>
+          </svg>
+        </div>
+        <div class="compass-data">
+          <div class="spd num">${spd.toFixed(1)}<span style="font-size:13px; color:var(--text-dim);"> m/s</span></div>
+          <div class="dir">${dirLabel(dir)} (${Math.round(dir)}°) から</div>
+          <div class="compass-hint" id="compassHint"></div>
+        </div>
+      </div>`;
+    }
+    case 'gust':
+      return `<div class="value num">${cur.wind_gusts_10m.toFixed(1)}<span class="unit">m/s</span></div>`;
+    case 'temp': {
+      const hiT = Math.round(daily.temperature_2m_max[0]);
+      const loT = Math.round(daily.temperature_2m_min[0]);
+      return `<div class="value num">${cur.temperature_2m.toFixed(1)}<span class="unit">℃</span></div>
+              <div class="sub num"><span style="color:#FF8A75;">${hiT}°</span> / <span style="color:#7FB8FF;">${loT}°</span></div>`;
+    }
+    case 'feels':
+      return `<div class="value num">${cur.apparent_temperature.toFixed(1)}<span class="unit">℃</span></div>
+              <div class="sub">${feelsLabel(cur.apparent_temperature)}(実際 ${cur.temperature_2m.toFixed(1)}℃)</div>`;
+    case 'humidity':
+      return `<div class="value num">${Math.round(cur.relative_humidity_2m)}<span class="unit">%</span></div>`;
+    case 'elevation':
+      return `<div class="value num">${Math.round(w.elevation)}<span class="unit">m</span></div>`;
+    case 'precipProb': {
+      const window = findPeakRainWindow(w);
+      return `<div class="value num">${daily.precipitation_probability_max[0]}<span class="unit">%</span></div>
+              <div class="sub">${weatherIcon(cur.weather_code)} ${window ? window+'頃' : '本日'}</div>`;
+    }
+    case 'precip':
+      return `<div class="value num">${cur.precipitation.toFixed(1)}<span class="unit">mm</span></div>`;
+    case 'cloud':
+      return `<div class="value num">${Math.round(cur.cloud_cover)}<span class="unit">%</span></div>`;
+    case 'pressure':
+      return `<div class="value num">${Math.round(cur.surface_pressure)}<span class="unit">hPa</span></div>`;
+    case 'uv':
+      return `<div class="value num">${daily.uv_index_max[0].toFixed(1)}</div>
+              <div class="sub">${uvLabel(daily.uv_index_max[0])}</div>`;
+    case 'sun': {
+      const sr = new Date(daily.sunrise[0]), ss = new Date(daily.sunset[0]);
+      const f = d => d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+      return `<div class="sun-col">
+        <div class="row"><span class="ic">🌅</span><span class="t num">${f(sr)}</span><span class="l">日の出</span></div>
+        <div class="row"><span class="ic">🌇</span><span class="t num">${f(ss)}</span><span class="l">日の入</span></div>
+      </div>`;
+    }
+    case 'hourlyPrecip': {
+      const h = w.hourly;
+      if(!h || !h.precipProbability || h.precipProbability.length===0){
+        return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      }
+      const slice = h.precipProbability.slice(h.idx, h.idx+6);
+      const maxP = Math.max(...slice, 1);
+      let bars = '';
+      slice.forEach(p=>{
+        const hgt = Math.max(4, Math.round((p/100)*46));
+        bars += `<div class="bar" style="height:${hgt}px; opacity:${p<15?0.35:0.9};"></div>`;
+      });
+      return `<div class="precip-mini">${bars}</div>
+              <div class="precip-mini-sub">今後6時間 最大 <span class="num" style="color:var(--accent);">${Math.round(maxP)}%</span></div>`;
+    }
+    case 'hourlyPrecipAmount': {
+      const h = w.hourly;
+      if(!h || !h.precipAmount || h.precipAmount.length===0){
+        return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      }
+      const slice = h.precipAmount.slice(h.idx, h.idx+6);
+      const scaleMax = Math.max(...slice, 2); // 最低2mmを基準に、多い時はその値に合わせて自動拡大
+      let bars = '';
+      slice.forEach(mm=>{
+        const hgt = Math.max(4, Math.round((mm/scaleMax)*46));
+        bars += `<div class="bar" style="height:${hgt}px; opacity:${mm<0.1?0.35:0.9};"></div>`;
+      });
+      const maxMm = Math.max(...slice);
+      return `<div class="precip-mini">${bars}</div>
+              <div class="precip-mini-sub">今後6時間 最大 <span class="num" style="color:var(--accent);">${maxMm.toFixed(1)}mm</span></div>`;
+    }
+    case 'pressureTrend': {
+      const h = w.hourly;
+      if(!h || h.pressureNow==null){
+        return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      }
+      const diff = (h.pressure3hAgo!=null) ? (h.pressureNow - h.pressure3hAgo) : 0;
+      let arrow = '→', label = '安定';
+      if(diff > 0.6){ arrow = '↑'; label = '上昇中'; }
+      else if(diff < -0.6){ arrow = '↓'; label = '下降中'; }
+      return `<div class="trend-arrow">${arrow}</div>
+              <div class="trend-label">${label}</div>
+              <div class="sub">${Math.round(h.pressureNow)}hPa (3h ${diff>=0?'+':''}${diff.toFixed(1)})</div>`;
+    }
+    case 'cape': {
+      const c = w.hourly ? w.hourly.cape : null;
+      if(c==null) return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      let label = '安定';
+      if(c >= 2500) label = '非常に不安定';
+      else if(c >= 1000) label = 'やや不安定';
+      return `<div class="value num">${Math.round(c)}<span class="unit">J/kg</span></div>
+              <div class="sub">大気の状態: ${label}</div>`;
+    }
+    case 'sunshine': {
+      const s = daily.sunshine_duration ? daily.sunshine_duration[0] : null;
+      if(s==null) return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      const hrs = s / 3600;
+      return `<div class="value num">${hrs.toFixed(1)}<span class="unit">時間</span></div>
+              <div class="sub">本日の日照時間</div>`;
+    }
+    case 'todayWeather': {
+      const code = cur.weather_code;
+      const hi = Math.round(daily.temperature_2m_max[0]);
+      const lo = Math.round(daily.temperature_2m_min[0]);
+      return `<div style="font-size:34px;">${weatherIcon(code)}</div>
+              <div class="value" style="font-size:18px; margin-top:4px;">${weatherText(code)}</div>
+              <div class="sub">${hi}° / ${lo}°</div>`;
+    }
+    case 'weekly': {
+      let cols = '';
+      for(let i=0; i<7 && i<daily.time.length; i++){
+        const d = new Date(daily.time[i]+'T00:00:00');
+        const dayLabel = i===0 ? '今日' : ['日','月','火','水','木','金','土'][d.getDay()];
+        const hi = Math.round(daily.temperature_2m_max[i]);
+        const lo = Math.round(daily.temperature_2m_min[i]);
+        cols += `<div class="weekly-strip-day">
+          <div class="wd-label">${dayLabel}</div>
+          <div class="wd-ic">${weatherIcon(daily.weather_code[i])}</div>
+          <div class="wd-hi num">${hi}°</div>
+          <div class="wd-lo num">${lo}°</div>
+        </div>`;
+      }
+      return `<div class="weekly-strip">${cols}</div>`;
+    }
+    case 'thunder': {
+      const warn = w.hourly && w.hourly.thunderToday;
+      const color = warn ? 'var(--danger)' : 'var(--text)';
+      return `<div class="value" style="color:${color}; font-size:22px;">${warn ? '⚡️ 注意' : '心配なし'}</div>
+              <div class="sub">${warn ? '本日、雷の可能性があります' : '本日は雷の予報なし'}</div>`;
+    }
+    case 'visibility': {
+      const v = w.hourly ? w.hourly.visibility : null;
+      if(v==null) return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      const km = v / 1000;
+      return `<div class="value num">${km.toFixed(1)}<span class="unit">km</span></div>`;
+    }
+    case 'dewpoint': {
+      const d = w.hourly ? w.hourly.dewPoint : null;
+      if(d==null) return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      return `<div class="value num">${d.toFixed(1)}<span class="unit">℃</span></div>`;
+    }
+    case 'snow': {
+      const s = w.hourly ? w.hourly.snowDepth : null;
+      const cm = (s==null) ? null : s * 100;
+      return `<div class="value num">${cm==null ? '--' : cm.toFixed(0)}<span class="unit">cm</span></div>`;
+    }
+    case 'airQuality': {
+      const aq = w.airQuality;
+      if(!aq) return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      return `<div class="value num">${Math.round(aq.pm2_5)}<span class="unit">µg/m³</span></div>
+              <div class="sub">PM2.5 ${aqLabel(aq.pm2_5)} ／ 黄砂 ${aq.dust!=null ? Math.round(aq.dust) : '--'}</div>`;
+    }
+    case 'moon': {
+      const moon = w.moon;
+      if(!moon || !moon.illum) return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      const info = moonPhaseLabel(moon.illum.phase);
+      const pct = Math.round(moon.illum.fraction * 100);
+      const f = d => d ? d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}) : '--:--';
+      const rise = moon.times ? f(moon.times.rise) : '--:--';
+      const set = moon.times ? f(moon.times.set) : '--:--';
+      return `<div style="font-size:30px;">${info.icon}</div>
+              <div class="value" style="font-size:16px; margin-top:4px;">${info.name}<span class="unit"> ${pct}%</span></div>
+              <div class="sub">出 ${rise} ／ 入 ${set}</div>`;
+    }
+    case 'freezingLevel': {
+      const v = w.hourly ? w.hourly.freezingLevelNow : null;
+      if(v==null) return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      return `<div class="value num">${Math.round(v)}<span class="unit">m</span></div>
+              <div class="sub">この高さから氷点下</div>`;
+    }
+    case 'solarRadiation': {
+      const v = w.hourly ? w.hourly.solarRadiationNow : null;
+      const sum = daily.shortwave_radiation_sum ? daily.shortwave_radiation_sum[0] : null;
+      if(v==null) return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      return `<div class="value num">${Math.round(v)}<span class="unit">W/m²</span></div>
+              <div class="sub">本日合計 ${sum!=null ? sum.toFixed(1)+'MJ/m²' : '--'}</div>`;
+    }
+    case 'soilTemp': {
+      const v = w.hourly ? w.hourly.soilTempNow : null;
+      if(v==null) return `<div class="value num" style="color:var(--text-faint); font-size:16px;">--</div>`;
+      return `<div class="value num">${v.toFixed(1)}<span class="unit">℃</span></div>
+              <div class="sub">地表(深さ0cm)</div>`;
+    }
+    case 'waveHeight': {
+      const h2 = w.hourly ? w.hourly.waveHeightNow : null;
+      const period = w.hourly ? w.hourly.wavePeriodNow : null;
+      if(h2==null) return `<div class="value num" style="color:var(--text-faint); font-size:15px;">対象海域外</div>`;
+      return `<div class="value num">${h2.toFixed(1)}<span class="unit">m</span></div>
+              <div class="sub">周期 ${period!=null ? period.toFixed(1)+'秒' : '--'}</div>`;
+    }
+    case 'seaTemp': {
+      const st = w.hourly ? w.hourly.seaTempNow : null;
+      if(st==null) return `<div class="value num" style="color:var(--text-faint); font-size:15px;">対象海域外</div>`;
+      return `<div class="value num">${st.toFixed(1)}<span class="unit">℃</span></div>`;
+    }
+    case 'heatIllness': {
+      const wbgt = estimateWBGT(cur.temperature_2m, cur.relative_humidity_2m);
+      const info = heatIllnessLabel(wbgt);
+      return `<div class="value num" style="color:${info.color};">${wbgt.toFixed(1)}</div>
+              <div class="sub" style="color:${info.color}; font-weight:700;">${info.label}</div>
+              <div class="sub" style="margin-top:2px;">暑さ指数(推定)</div>`;
+    }
+    case 'laundryIndex': {
+      const score = laundryScore(w);
+      const info = laundryLabel(score);
+      return `<div style="font-size:26px;">${info.icon}</div>
+              <div class="value" style="font-size:16px; margin-top:6px;">${info.label}</div>
+              <div class="sub">目安スコア ${score}</div>`;
+    }
+    case 'umbrellaIndex': {
+      const prob = daily.precipitation_probability_max ? daily.precipitation_probability_max[0] : 0;
+      const info = umbrellaLabel(prob);
+      return `<div style="font-size:26px;">${info.icon}</div>
+              <div class="value" style="font-size:16px; margin-top:6px;">${info.label}</div>
+              <div class="sub">降水確率 ${prob}%</div>`;
+    }
+    case 'clothingIndex': {
+      const info = clothingLabel(cur.apparent_temperature);
+      return `<div style="font-size:26px;">${info.icon}</div>
+              <div class="value" style="font-size:14px; margin-top:6px;">${info.label}</div>
+              <div class="sub">体感 ${cur.apparent_temperature.toFixed(1)}℃</div>`;
+    }
+    case 'drynessIndex': {
+      const score = drynessScore(cur.relative_humidity_2m);
+      return `<div class="value num">${score}</div>
+              <div class="sub">${drynessLabel(score)}</div>`;
+    }
+    case 'stargazingIndex': {
+      const score = stargazingScore(w);
+      const info = stargazingLabel(score);
+      return `<div style="font-size:26px;">${info.icon}</div>
+              <div class="value" style="font-size:16px; margin-top:6px;">${info.label}</div>
+              <div class="sub">目安スコア ${score}</div>`;
+    }
+    case 'weatherWarning': {
+      const text = w.warningText;
+      if(text === undefined) return `<div class="sub" style="color:var(--text-faint);">読み込み中…</div>`;
+      if(text === null) return `<div class="sub" style="color:var(--text-faint);">取得できませんでした</div>
+              <div class="sub" style="margin-top:4px; font-size:10.5px; color:var(--text-faint);">${w.warningError || ''}</div>`;
+      const isNone = text === '警報・注意報なし';
+      return `<div style="font-size:24px;">${isNone ? '✅' : '⚠️'}</div>
+              <div class="sub" style="margin-top:6px; color:${isNone ? 'var(--text-dim)' : '#FFC94D'}; line-height:1.7;">${text}</div>`;
+    }
+    case 'aqi': {
+      const v = w.hourly ? w.hourly.aqiNow : null;
+      const info = euroAqiLabel(v);
+      if(v==null) return `<div class="value num" style="color:var(--text-faint); font-size:15px;">--</div>`;
+      return `<div class="value num" style="color:${info.color};">${Math.round(v)}</div>
+              <div class="sub" style="color:${info.color}; font-weight:700;">${info.label}</div>`;
+    }
+    case 'ozone': {
+      const v = w.hourly ? w.hourly.ozoneNow : null;
+      if(v==null) return `<div class="value num" style="color:var(--text-faint); font-size:15px;">--</div>`;
+      return `<div class="value num">${Math.round(v)}<span class="unit">µg/m³</span></div>`;
+    }
+    case 'waveBreakdown': {
+      const hh = w.hourly || {};
+      const sh = hh.swellHeightNow, sp = hh.swellPeriodNow, wh = hh.windWaveHeightNow, wp = hh.windWavePeriodNow;
+      if(sh==null && wh==null) return `<div class="value num" style="color:var(--text-faint); font-size:15px;">対象海域外</div>`;
+      return `<div class="sub" style="line-height:2;">
+                うねり: <span class="num" style="color:var(--text);">${sh!=null?sh.toFixed(1)+'m':'--'}</span>${sp!=null?'('+sp.toFixed(0)+'秒)':''}<br>
+                風浪: <span class="num" style="color:var(--text);">${wh!=null?wh.toFixed(1)+'m':'--'}</span>${wp!=null?'('+wp.toFixed(0)+'秒)':''}
+              </div>`;
+    }
+    case 'dayLength': {
+      const sunrise = new Date(daily.sunrise[0]);
+      const sunset = new Date(daily.sunset[0]);
+      const mins = Math.round((sunset - sunrise) / 60000);
+      const h = Math.floor(mins / 60), m = mins % 60;
+      return `<div class="value num">${h}<span class="unit">時間</span>${m}<span class="unit">分</span></div>
+              <div class="sub">日の出〜日の入り</div>`;
+    }
+    case 'precipHours': {
+      const hrs = daily.precipitation_hours ? daily.precipitation_hours[0] : null;
+      if(hrs==null) return `<div class="value num" style="color:var(--text-faint); font-size:15px;">--</div>`;
+      return `<div class="value num">${hrs}<span class="unit">時間</span></div>
+              <div class="sub">本日の見込み</div>`;
+    }
+    case 'rainRadar': {
+      const rp = w.radarPreview;
+      if(!rp){
+        return `<div style="font-size:30px;">📡</div>
+                <div class="sub" style="margin-top:6px;">タップで表示</div>`;
+      }
+      return `<div class="radar-mini">
+                <img src="${rp.baseUrl}" alt="" class="radar-mini-base" onerror="this.closest('.radar-mini').innerHTML='<div style=&quot;font-size:30px;&quot;>📡</div><div class=&quot;sub&quot; style=&quot;margin-top:6px;&quot;>タップで表示</div>'">
+                <img src="${rp.radarUrl}" alt="" class="radar-mini-overlay" onerror="this.style.display='none'">
+                <div class="radar-mini-label">タップで拡大</div>
+              </div>`;
+    }
+    case 'affiliateSuggestion': {
+      const s = getContextualSuggestion(w);
+      const p = w.affiliateProduct;
+      if(p === undefined){
+        // まだ商品を取得中
+        return `<div style="font-size:26px;">${s.icon}</div>
+                <div class="value" style="font-size:14px; margin-top:6px;">${s.title}</div>
+                <div class="sub">商品を探しています…</div>`;
+      }
+      if(p === null){
+        return `<div style="font-size:26px;">${s.icon}</div>
+                <div class="value" style="font-size:14px; margin-top:6px;">${s.title}</div>
+                <div class="sub">${s.productName} を見る</div>
+                <div class="sub" style="margin-top:4px; font-size:10px; color:var(--text-faint);">${lastAffiliateError || ''}</div>`;
+      }
+      const shortName = p.name.length > 24 ? p.name.slice(0,24)+'…' : p.name;
+      return `${p.image ? `<img src="${p.image}" alt="" style="width:52px; height:52px; object-fit:cover; border-radius:10px; margin-bottom:6px;">` : `<div style="font-size:24px;">${s.icon}</div>`}
+              <div class="value" style="font-size:12.5px; line-height:1.4; margin-top:2px;">${shortName}</div>
+              <div class="sub" style="color:var(--accent);">¥${p.price.toLocaleString()}</div>`;
+    }
+    default:
+      return '';
+  }
+}
+function uvLabel(v){
+  if(v<3) return '弱い';
+  if(v<6) return '中程度';
+  if(v<8) return '強い';
+  if(v<11) return '非常に強い';
+  return '極端';
+}
+function feelsLabel(t){
+  if(t < 0) return '極寒';
+  if(t < 9) return '寒い';
+  if(t < 16) return '肌寒い';
+  if(t < 21) return '涼しい';
+  if(t < 26) return '快適';
+  if(t < 30) return 'やや暑い';
+  if(t < 33) return '暑い';
+  return 'かなり暑い';
+}
+function findPeakRainWindow(w){
+  const h = w.hourly;
+  if(!h || !h.precipProbability || h.precipProbability.length===0 || h.idx==null) return null;
+  const slice = h.precipProbability.slice(h.idx, h.idx+24);
+  if(slice.length===0) return null;
+  let maxIdx = 0, maxVal = -1;
+  slice.forEach((v,i)=>{ if(v!=null && v>maxVal){ maxVal=v; maxIdx=i; } });
+  if(maxVal < 20) return null;
+  const startDate = new Date(h.time[h.idx+maxIdx]);
+  const endIdx = Math.min(h.idx+maxIdx+3, h.time.length-1);
+  const endDate = new Date(h.time[endIdx]);
+  const fmt = d => d.getHours() + '時';
+  return `${fmt(startDate)}〜${fmt(endDate)}`;
+}
+
+/* ========================= 熱中症情報（簡易WBGT推定） =========================
+   気温・湿度から暑さ指数(WBGT)を簡易的に推定する近似式。
+   日射・風の影響までは反映していない目安値のため、公式の熱中症警戒アラートとは異なります。 */
+function estimateWBGT(tempC, rh){
+  const svp = 6.105 * Math.exp(17.27 * tempC / (237.7 + tempC)); // 飽和水蒸気圧(hPa)
+  const vp = svp * (rh / 100); // 実際の水蒸気圧
+  return 0.567 * tempC + 0.393 * vp + 3.94;
+}
+function heatIllnessLabel(wbgt){
+  if(wbgt < 21) return { label:'ほぼ安全', color:'#7FE0A8' };
+  if(wbgt < 25) return { label:'注意', color:'#8FD4E8' };
+  if(wbgt < 28) return { label:'警戒', color:'#FFD666' };
+  if(wbgt < 31) return { label:'厳重警戒', color:'#FFA857' };
+  return { label:'危険', color:'#FF5C5C' };
+}
+
+/* ========================= 洗濯指数（独自の目安スコア） =========================
+   公式指標ではなく、気温・湿度・日照時間・降水確率・風速から算出する独自の目安です。 */
+function laundryScore(w){
+  const cur = w.current, daily = w.daily;
+  let score = 50;
+  score += (cur.temperature_2m - 20) * 1.5;
+  score -= cur.relative_humidity_2m * 0.4;
+  score += (daily.sunshine_duration ? daily.sunshine_duration[0] / 3600 : 5) * 3;
+  score -= (daily.precipitation_probability_max ? daily.precipitation_probability_max[0] : 0) * 0.6;
+  score += Math.min(cur.wind_speed_10m, 5) * 2;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+function laundryLabel(score){
+  if(score>=75) return { label:'絶好', icon:'☀️' };
+  if(score>=55) return { label:'良い', icon:'🌤️' };
+  if(score>=35) return { label:'まあまあ', icon:'⛅' };
+  if(score>=15) return { label:'やや悪い', icon:'☁️' };
+  return { label:'部屋干し推奨', icon:'🌧️' };
+}
+
+/* ========================= 傘指数（独自の目安） ========================= */
+function umbrellaLabel(prob){
+  if(prob < 20) return { label:'不要', icon:'☀️' };
+  if(prob < 50) return { label:'念のため', icon:'🌂' };
+  if(prob < 80) return { label:'折りたたみ推奨', icon:'☂️' };
+  return { label:'傘必須', icon:'☔' };
+}
+
+/* ========================= 服装指数（独自の目安） ========================= */
+function clothingLabel(t){
+  if(t >= 28) return { label:'半袖・涼しい格好', icon:'👕' };
+  if(t >= 23) return { label:'半袖+羽織り', icon:'👚' };
+  if(t >= 18) return { label:'長袖シャツ', icon:'👔' };
+  if(t >= 13) return { label:'ニット・カーディガン', icon:'🧥' };
+  if(t >= 8)  return { label:'コート', icon:'🧥' };
+  if(t >= 3)  return { label:'厚手コート', icon:'🥶' };
+  return { label:'防寒着必須', icon:'🧤' };
+}
+
+/* ========================= 乾燥指数（独自の目安） ========================= */
+function drynessScore(rh){ return Math.max(0, Math.min(100, Math.round(100 - rh))); }
+function drynessLabel(score){
+  if(score < 30) return '潤い十分';
+  if(score < 50) return 'やや乾燥';
+  if(score < 70) return '乾燥注意';
+  return 'かなり乾燥';
+}
+
+/* ========================= 星空指数（独自の目安） ========================= */
+function stargazingScore(w){
+  const cloud = w.current.cloud_cover != null ? w.current.cloud_cover : 50;
+  const moonFraction = (w.moon && w.moon.illum) ? w.moon.illum.fraction : 0.5;
+  let score = 100 - cloud - moonFraction * 30;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+function stargazingLabel(score){
+  if(score >= 70) return { label:'絶好', icon:'✨' };
+  if(score >= 50) return { label:'良い', icon:'🌟' };
+  if(score >= 30) return { label:'まあまあ', icon:'⭐' };
+  return { label:'見えにくい', icon:'☁️' };
+}
+function aqLabel(pm25){
+  if(pm25==null) return '';
+  if(pm25<=15) return '良好';
+  if(pm25<=35) return 'やや注意';
+  if(pm25<=70) return '注意';
+  return '警戒';
+}
+function euroAqiLabel(v){
+  if(v==null) return { label:'--', color:'var(--text-faint)' };
+  if(v<=20) return { label:'良好', color:'#7FE0A8' };
+  if(v<=40) return { label:'普通', color:'#C8E080' };
+  if(v<=60) return { label:'やや注意', color:'#FFD666' };
+  if(v<=80) return { label:'注意', color:'#FFA857' };
+  if(v<=100) return { label:'警戒', color:'#FF7A6E' };
+  return { label:'厳重警戒', color:'#FF5C5C' };
+}
+
+/* ========================= おすすめアイテム（天気連動・楽天） =========================
+   実際の商品が決まったら、以下の url を本物のアフィリエイトリンクに差し替えてください。
+   今は商品名で楽天市場を検索するだけのリンク（アフィリエイトタグなし）になっています。 */
+function getContextualSuggestion(w){
+  const cur = w.current, daily = w.daily, h = w.hourly || {};
+  const uvMax = daily.uv_index_max ? daily.uv_index_max[0] : 0;
+  const precipProb = daily.precipitation_probability_max ? daily.precipitation_probability_max[0] : 0;
+  const temp = cur.temperature_2m;
+  const gust = cur.wind_gusts_10m;
+
+  // 1. 熱中症リスク（気温だけでなく湿度も加味した暑さ指数で判定）
+  const wbgt = estimateWBGT(cur.temperature_2m, cur.relative_humidity_2m);
+  if(wbgt >= 28){
+    return { icon:'🧊', title:'熱中症に厳重警戒な日', desc:'経口補水液や冷却グッズで対策を', productName:'熱中症対策グッズ', query:'経口補水液', anchor:'heatIllness' };
+  }
+
+  // 2. 気象警報・注意報が出ている
+  if(w.warningText && w.warningText !== '警報・注意報なし'){
+    return { icon:'⚠️', title:'気象警報・注意報が出ています', desc:'念のため防災グッズを見直しておきましょう', productName:'防災グッズ', query:'防災グッズ 非常持ち出し袋', anchor:'weatherWarning' };
+  }
+
+  // 3. 雷のおそれ
+  if(h.thunderToday){
+    return { icon:'⛈️', title:'雷のおそれがある日', desc:'停電に備えて、モバイルバッテリーや防災ラジオがあると安心です', productName:'防災ラジオ・モバイルバッテリー', query:'防災ラジオ モバイルバッテリー', anchor:'thunder' };
+  }
+
+  // 4. UV指数が高い
+  if(uvMax >= 7){
+    return { icon:'☀️', title:'紫外線が強い日', desc:'日焼け止めや日傘で対策しておきたい強さです', productName:'日焼け止め', query:'日焼け止め SPF50', anchor:'uv' };
+  }
+
+  // 5. 大気質(総合指数)が悪い
+  const aqi = h.aqiNow;
+  if(aqi != null && aqi >= 60){
+    return { icon:'😷', title:'大気質が良くない日', desc:'マスクや空気清浄機で対策を', productName:'マスク・空気清浄機', query:'マスク PM2.5対応', anchor:'aqi' };
+  }
+
+  // 6. 雨の可能性が高い
+  if(precipProb >= 60){
+    return { icon:'☂️', title:'雨の可能性が高い日', desc:'折りたたみ傘やレインウェアの準備を', productName:'折りたたみ傘', query:'折りたたみ傘 軽量', anchor:'precipProb' };
+  }
+
+  // 7. 視程が悪い(濃霧など)
+  if(h.visibility != null && h.visibility < 1000){
+    return { icon:'🌫️', title:'視界が悪くなりやすい日', desc:'車移動や夜道では反射材・ライトがあると安心です', productName:'反射材・LEDライト', query:'反射材 ライト 安全グッズ', anchor:'visibility' };
+  }
+
+  // 8. 今すでに雨が降っている(確率ではなく実況)
+  const precipNow = h.precipAmount && h.idx != null ? h.precipAmount[h.idx] : null;
+  if(precipNow != null && precipNow > 0){
+    return { icon:'🌧️', title:'今、雨が降っています', desc:'長靴やレインシューズがあると足元が濡れずに済みます', productName:'レインシューズ', query:'レインシューズ 長靴', anchor:'precip' };
+  }
+
+  // 9. 積雪
+  if(h.snowDepth != null && h.snowDepth > 0){
+    return { icon:'❄️', title:'積雪がある日', desc:'除雪用品や滑りにくい靴の準備を', productName:'除雪用品', query:'雪かき スコップ', anchor:'snow' };
+  }
+
+  // 10. 波が高い(海沿いの地点)
+  if(h.waveHeightNow != null && h.waveHeightNow >= 2){
+    return { icon:'🌊', title:'波が高い日', desc:'海に近づく予定があるなら、ライフジャケットの準備を', productName:'ライフジャケット', query:'ライフジャケット 釣り', anchor:'waveHeight' };
+  }
+
+  // 11. うねりが長周期で良いコンディション(サーファー向け)
+  if(h.swellPeriodNow != null && h.swellPeriodNow >= 10 && h.swellHeightNow != null && h.swellHeightNow >= 0.5){
+    return { icon:'🏄', title:'サーフィン日和のうねり', desc:'長周期のうねりが入っている日です。ワックスの準備を', productName:'サーフワックス', query:'サーフィン ワックス', anchor:'waveBreakdown' };
+  }
+
+  // 12. 海水温が低い(海沿いの地点、サーファー・ダイバー向け)
+  if(h.seaTempNow != null && h.seaTempNow <= 18){
+    return { icon:'🥶', title:'海水温が低い日', desc:'厚手のウェットスーツが必要な水温です', productName:'ウェットスーツ', query:'サーフィン ウェットスーツ 厚手', anchor:'seaTemp' };
+  }
+
+  // 13. 星空観察に向いている夜
+  const starScore = stargazingScore(w);
+  if(starScore >= 70){
+    return { icon:'✨', title:'星空観察に向いている夜', desc:'双眼鏡があれば、いつもと違う星空が楽しめます', productName:'双眼鏡', query:'双眼鏡 星空観察', anchor:'stargazingIndex' };
+  }
+
+  // 14. 気圧が急降下(体調不良・頭痛のリスク)
+  if(h.pressureNow != null && h.pressure3hAgo != null && (h.pressure3hAgo - h.pressureNow) >= 3){
+    return { icon:'📉', title:'気圧が急降下している日', desc:'頭痛や体調不良が出やすいタイミングです', productName:'携帯用気圧計', query:'気圧計 携帯 コンパクト', anchor:'pressureTrend' };
+  }
+
+  // 15. 大気が不安定(雷はまだ確定していないが荒天の可能性)
+  if(h.cape != null && h.cape >= 1000){
+    return { icon:'🌪️', title:'大気の状態が不安定な日', desc:'急な雨に備えて、折りたたみタープや雨具の準備を', productName:'折りたたみタープ', query:'タープ 折りたたみ アウトドア', anchor:'cape' };
+  }
+
+  // 16. 標高の高い地点(登山装備)
+  if(w.elevation != null && w.elevation >= 1000){
+    return { icon:'⛰️', title:'標高の高い地点です', desc:'気温差に対応できる登山用レイヤリングウェアを', productName:'登山用ウェア', query:'登山 レイヤリング ウェア', anchor:'elevation' };
+  }
+
+  // 17. 凍結高度が低い(稜線付近が凍結しやすい)
+  if(h.freezingLevelNow != null && h.freezingLevelNow <= 1500){
+    return { icon:'🧊', title:'稜線が凍結しやすい日', desc:'アイゼンなど滑り止め装備の準備を', productName:'軽アイゼン', query:'軽アイゼン 登山', anchor:'freezingLevel' };
+  }
+
+  // 18. 風が強い
+  if(gust != null && gust >= 12){
+    return { icon:'🌬️', title:'風が強い日', desc:'耐風性のあるウィンドブレーカーがあると安心です', productName:'ウィンドブレーカー', query:'ウィンドブレーカー メンズ', anchor:'wind' };
+  }
+
+  // 19. 冷え込む
+  if(temp != null && temp <= 8){
+    return { icon:'🧣', title:'今日は冷え込みます', desc:'防寒着やカイロで寒さ対策を', productName:'防寒ウェア', query:'防寒 インナー ヒートテック', anchor:'temp' };
+  }
+
+  // 20. 暑いが危険域ではない(半袖で過ごせる日)
+  if(temp != null && temp >= 28){
+    return { icon:'👕', title:'半袖で過ごしやすい日', desc:'速乾性のある夏物ウェアが快適です', productName:'速乾Tシャツ', query:'速乾 Tシャツ メンズ', anchor:'clothingIndex' };
+  }
+
+  // 21. 洗濯物が乾きにくい
+  const laundry = laundryScore(w);
+  if(laundry < 35){
+    return { icon:'🌂', title:'洗濯物が乾きにくい日', desc:'室内干し用の除湿機やサーキュレーターが活躍します', productName:'室内干しグッズ', query:'室内干し 除湿機', anchor:'laundryIndex' };
+  }
+
+  // 22. 乾燥しやすい
+  const dryness = drynessScore(cur.relative_humidity_2m);
+  if(dryness >= 70){
+    return { icon:'💧', title:'空気が乾燥している日', desc:'加湿器や保湿ケアで喉・肌を守りましょう', productName:'加湿器', query:'卓上 加湿器', anchor:'drynessIndex' };
+  }
+
+  // 23. PM2.5が単独で高め(総合指数はまだ悪くなくても)
+  const pm25 = h.series && h.series.airQuality && h.idx != null ? h.series.airQuality[h.idx] : null;
+  if(pm25 != null && pm25 >= 35){
+    return { icon:'🌾', title:'PM2.5・黄砂がやや多い日', desc:'花粉・PM2.5対応のマスクがあると安心です', productName:'PM2.5対応マスク', query:'マスク PM2.5 花粉', anchor:'airQuality' };
+  }
+
+  // 24. 地表温度が高い(家庭菜園・ガーデニングの目安)
+  if(h.soilTempNow != null && h.soilTempNow >= 20){
+    return { icon:'🌱', title:'種まき・植え付けに適した地温', desc:'ガーデニング・家庭菜園を始めるのにいい時期です', productName:'園芸用品', query:'家庭菜園 培養土', anchor:'soilTemp' };
+  }
+
+  return { icon:'🎒', title:'今日のおすすめ', desc:'アウトドアで使える便利グッズをチェック', productName:'アウトドア用品', query:'アウトドア 便利グッズ', anchor:null };
+}
+
+/* ========================= 楽天商品検索API（2026-07-01版） =========================
+   2026年2月の楽天API移行後の仕様：applicationId + accessKey の両方が必須。
+   ドメインは Rakuten Developers の「許可されたWebサイト」に登録した weather-tiles.netlify.app と
+   一致している必要がある（ブラウザが自動送信するRefererヘッダーで判定される）。 */
+const RAKUTEN_APP_ID = '97aa0a2b-8bc9-4d20-8204-62e6244c35b7';
+const RAKUTEN_ACCESS_KEY = 'pk_R5ydIWbqa0qdBXKq1UpueZaqR0RaJcmaGDk2IqWgTE6';
+const RAKUTEN_AFFILIATE_ID = '56a1f3bb.d0635255.56a1f3bc.9186e04a';
+let lastAffiliateError = null;
+
+async function fetchRakutenProduct(keyword){
+  try{
+    const params = new URLSearchParams({
+      applicationId: RAKUTEN_APP_ID,
+      accessKey: RAKUTEN_ACCESS_KEY,
+      affiliateId: RAKUTEN_AFFILIATE_ID,
+      keyword: keyword,
+      hits: 1,
+      sort: '-reviewCount',
+      format: 'json',
+      formatVersion: 2
+    });
+    const res = await fetch(`https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?${params}`);
+    if(!res.ok){
+      let detail = '';
+      try{ const errBody = await res.json(); detail = errBody.error_description || errBody.error || ''; }catch(e){}
+      lastAffiliateError = `APIエラー(${res.status})${detail ? ': '+detail : ''}`;
+      return null;
+    }
+    const data = await res.json();
+    const item = data.Items && data.Items[0];
+    if(!item){ lastAffiliateError = '該当商品が0件でした'; return null; }
+    lastAffiliateError = null;
+    return {
+      name: item.itemName,
+      price: item.itemPrice,
+      image: (item.mediumImageUrls && item.mediumImageUrls[0]) || null,
+      url: item.affiliateUrl || item.itemUrl
+    };
+  }catch(e){
+    lastAffiliateError = '通信エラー: ' + (e.message || e);
+    return null;
+  }
+}
+
+async function loadAffiliateProduct(){
+  if(!weatherData) return;
+  const s = getContextualSuggestion(weatherData);
+  weatherData.affiliateProduct = await fetchRakutenProduct(s.query);
+  weatherData.affiliateSuggestionMeta = s;
+  // 商品カードが今表示されていれば、取得結果を反映して再描画
+  if(settings.enabled.includes('affiliateSuggestion')) renderGrid();
+}
+
+/* ========================= 雨雲レーダー ミニプレビュー ========================= */
+// 緯度経度 → スリッピーマップのタイル座標(x, y)に変換
+function latLonToTile(lat, lon, zoom){
+  const n = Math.pow(2, zoom);
+  const x = Math.floor((lon + 180) / 360 * n);
+  const latRad = lat * Math.PI / 180;
+  const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1/Math.cos(latRad)) / Math.PI) / 2 * n);
+  return { x, y, z: zoom };
+}
+
+/* ========================= 気象警報（気象庁 公式JSON） =========================
+   都道府県名 → 気象庁の府県予報区コードの対応表。
+   北海道・鹿児島県・沖縄県は複数の予報区に分かれているため、代表的な1つを使用。
+   このAPIは気象庁の公式サポート対象ではなく、仕様変更のリスクがある点に留意。 */
+// 警報・注意報コード → 日本語名の対応表(気象庁の一般的なコード体系)
+const JMA_WARNING_NAMES = {
+  '02':'暴風雪警報','03':'大雨警報','04':'洪水警報','05':'暴風警報','06':'大雪警報',
+  '07':'波浪警報','08':'高潮警報','09':'土砂災害警報','10':'大雨注意報','12':'大雪注意報',
+  '13':'風雪注意報','14':'雷注意報','15':'強風注意報','16':'波浪注意報','17':'融雪注意報',
+  '18':'洪水注意報','19':'高潮注意報','20':'濃霧注意報','21':'乾燥注意報','22':'なだれ注意報',
+  '23':'低温注意報','24':'霜注意報','25':'着氷注意報','26':'着雪注意報','29':'土砂災害注意報',
+  '32':'暴風雪特別警報','33':'大雨特別警報','35':'暴風特別警報','36':'大雪特別警報',
+  '37':'波浪特別警報','38':'高潮特別警報','39':'土砂災害特別警報','43':'大雨危険警報',
+  '48':'高潮危険警報','49':'土砂災害危険警報'
+};
+const JMA_PREF_CODES = {
+  '北海道':'016000','青森県':'020000','岩手県':'030000','宮城県':'040000','秋田県':'050000',
+  '山形県':'060000','福島県':'070000','茨城県':'080000','栃木県':'090000','群馬県':'100000',
+  '埼玉県':'110000','千葉県':'120000','東京都':'130000','神奈川県':'140000','新潟県':'150000',
+  '富山県':'160000','石川県':'170000','福井県':'180000','山梨県':'190000','長野県':'200000',
+  '岐阜県':'210000','静岡県':'220000','愛知県':'230000','三重県':'240000','滋賀県':'250000',
+  '京都府':'260000','大阪府':'270000','兵庫県':'280000','奈良県':'290000','和歌山県':'300000',
+  '鳥取県':'310000','島根県':'320000','岡山県':'330000','広島県':'340000','山口県':'350000',
+  '徳島県':'360000','香川県':'370000','愛媛県':'380000','高知県':'390000','福岡県':'400000',
+  '佐賀県':'410000','長崎県':'420000','熊本県':'430000','大分県':'440000','宮崎県':'450000',
+  '鹿児島県':'460100','沖縄県':'471000'
+};
+
+// Nominatim(海外製の地図データ)は日本の「都道府県」をうまく扱えず、
+// address.state に地方名(例:関東地方)が入ったり、キー自体が無いことがある。
+// そこで address 内の全フィールド + display_name から、既知の都道府県名を総当たりで探す
+function findPrefecture(geo){
+  const candidates = [];
+  if(geo.address){
+    Object.values(geo.address).forEach(v => { if(typeof v === 'string') candidates.push(v); });
+  }
+  if(geo.display_name) candidates.push(...geo.display_name.split(','));
+  for(const c of candidates){
+    const trimmed = c.trim();
+    if(JMA_PREF_CODES[trimmed]) return trimmed;
+  }
+  return null;
+}
+
+async function loadWeatherWarning(lat, lon){
+  try{
+    let geoRes;
+    try{
+      geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=8&accept-language=ja`);
+    }catch(e){
+      weatherData.warningText = null; weatherData.warningError = '地点の判定に失敗(通信エラー)'; return;
+    }
+    if(!geoRes.ok){ weatherData.warningText = null; weatherData.warningError = '地点の判定に失敗(応答エラー)'; return; }
+    const geo = await geoRes.json();
+    const pref = findPrefecture(geo);
+    const code = pref ? JMA_PREF_CODES[pref] : null;
+    if(!code){ weatherData.warningText = null; weatherData.warningError = `都道府県を特定できず(取得値: ${pref || '不明'})`; return; }
+    let res;
+    try{
+      res = await fetch(`https://www.jma.go.jp/bosai/warning/data/r8/${code}.json`);
+    }catch(e){
+      weatherData.warningText = null; weatherData.warningError = '気象庁への通信に失敗(CORS等の可能性)'; return;
+    }
+    if(!res.ok){ weatherData.warningText = null; weatherData.warningError = `気象庁からの応答エラー(${res.status})`; return; }
+    const data = await res.json();
+    // areaTypes[0](都道府県内の一次細分区域)に発表中の警報・注意報コードを集めて名前に変換する
+    const activeCodes = new Set();
+    if(data.areaTypes && data.areaTypes[0] && data.areaTypes[0].areas){
+      data.areaTypes[0].areas.forEach(area=>{
+        (area.warnings || []).forEach(w=>{
+          if(w.code && w.status !== '解除' && w.status !== '発表警報・注意報はなし'){
+            activeCodes.add(w.code);
+          }
+        });
+      });
+    }
+    if(activeCodes.size > 0){
+      const names = [...activeCodes].map(c => JMA_WARNING_NAMES[c] || `不明な警報(コード${c})`);
+      weatherData.warningText = [...new Set(names)].join('・');
+    }else{
+      weatherData.warningText = '警報・注意報なし';
+    }
+    weatherData.warningPref = pref;
+    if(settings.enabled.includes('weatherWarning')) renderGrid();
+    if(settings.enabled.includes('affiliateSuggestion')) loadAffiliateProduct();
+  }catch(e){
+    weatherData.warningText = null;
+    weatherData.warningError = '不明なエラー: ' + (e.message || e);
+  }
+}
+
+async function loadRadarPreview(){
+  if(!weatherData || activeLocation.lat == null) return;
+  try{
+    const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+    const data = await res.json();
+    const past = (data.radar && data.radar.past) ? data.radar.past : [];
+    const latest = past[past.length - 1];
+    if(!latest || !data.host) return;
+    // 最大ズームは7までしか提供されていない仕様なので超えないようにする
+    const tile = latLonToTile(activeLocation.lat, activeLocation.lon, Math.min(6, 7));
+    weatherData.radarPreview = {
+      time: latest.time,
+      baseUrl: `https://tile.openstreetmap.org/${tile.z}/${tile.x}/${tile.y}.png`,
+      radarUrl: `${data.host}${latest.path}/256/${tile.z}/${tile.x}/${tile.y}/2/1_1.png`
+    };
+    if(settings.enabled.includes('rainRadar')) renderGrid();
+  }catch(e){
+    // 失敗してもアイコン表示にフォールバックするだけなので何もしない
+  }
+}
+
+function moonPhaseLabel(phase){
+  // phase: 0=新月 0.25=上弦 0.5=満月 0.75=下弦
+  if(phase < 0.03 || phase > 0.97) return {name:'新月', icon:'🌑'};
+  if(phase < 0.22) return {name:'三日月', icon:'🌒'};
+  if(phase < 0.28) return {name:'上弦の月', icon:'🌓'};
+  if(phase < 0.47) return {name:'十三夜月', icon:'🌔'};
+  if(phase < 0.53) return {name:'満月', icon:'🌕'};
+  if(phase < 0.72) return {name:'寝待月', icon:'🌖'};
+  if(phase < 0.78) return {name:'下弦の月', icon:'🌗'};
+  return {name:'有明月', icon:'🌘'};
+}
+
+/* ========================= グリッド描画 ========================= */
+function renderGrid(){
+  let enabledOrdered = settings.order.filter(id => settings.enabled.includes(id));
+
+  // おすすめアイテムは、ユーザーが手動で動かしていない限り、関連するカードの隣に自動追従させる
+  if(enabledOrdered.includes('affiliateSuggestion') && weatherData){
+    const suggestion = getContextualSuggestion(weatherData);
+    if(suggestion.anchor && enabledOrdered.includes(suggestion.anchor)){
+      enabledOrdered = enabledOrdered.filter(id => id !== 'affiliateSuggestion');
+      const anchorIdx = enabledOrdered.indexOf(suggestion.anchor);
+      enabledOrdered.splice(anchorIdx + 1, 0, 'affiliateSuggestion');
+    }
+  }
+
+  let html = '';
+  enabledOrdered.forEach(id=>{
+    const def = CARD_MAP[id];
+    if(!def) return;
+    html += cardShell(id, def.label, renderCardBody(id));
+  });
+  if(editing){
+    html += `<li class="add-tile" id="addTile"><span class="plus">＋</span>カードを追加</li>`;
+  }
+  grid.innerHTML = html;
+
+  grid.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const id = btn.getAttribute('data-del');
+      settings.enabled = settings.enabled.filter(x=>x!==id);
+      saveSettings();
+      renderGrid();
+    });
+  });
+  const addTile = document.getElementById('addTile');
+  if(addTile) addTile.addEventListener('click', openSheet);
+
+  setupSortable();
+}
+
+function setupSortable(){
+  if(sortable){ sortable.destroy(); sortable = null; }
+  sortable = new Sortable(grid, {
+    animation:130,
+    easing:'cubic-bezier(0.2, 0, 0.2, 1)',
+    disabled: !editing,
+    filter: '.add-tile',
+    preventOnFilter: false,
+    ghostClass: 'dragging-ghost',
+    chosenClass: 'dragging-chosen',
+    dragClass: 'dragging-active',
+    onEnd: ()=>{
+      const ids = [...grid.querySelectorAll('.card')].map(el=>el.getAttribute('data-id'));
+      // keep disabled cards at the end in their previous relative order
+      const disabled = settings.order.filter(id=>!settings.enabled.includes(id));
+      settings.order = [...ids, ...disabled];
+      saveSettings();
+    }
+  });
+}
+
+/* ========================= 編集モード ========================= */
+// 編集モードは歯車アイコン、またはカードの長押しで入る。
+function showAddTile(){
+  if(document.getElementById('addTile')) return;
+  grid.insertAdjacentHTML('beforeend', `<li class="add-tile" id="addTile"><span class="plus">＋</span>カードを追加</li>`);
+  document.getElementById('addTile').addEventListener('click', openSheet);
+}
+function hideAddTile(){
+  const el = document.getElementById('addTile');
+  if(el) el.remove();
+}
+function enterEdit(){
+  if(editing) return;
+  editing = true;
+  document.body.classList.add('editing');
+  doneBtn.classList.add('show');
+  resetHeaderBtn.classList.add('show');
+  editBtn.classList.add('hide');
+  locationSearchBtn.classList.add('hide');
+  headerRefreshBtn.classList.add('hide');
+  showAddTile();
+  setupSortable();
+}
+function exitEdit(){
+  if(!editing) return;
+  editing = false;
+  document.body.classList.remove('editing');
+  doneBtn.classList.remove('show');
+  resetHeaderBtn.classList.remove('show');
+  editBtn.classList.remove('hide');
+  locationSearchBtn.classList.remove('hide');
+  headerRefreshBtn.classList.remove('hide');
+  hideAddTile();
+  closeSheet();
+  setupSortable();
+}
+editBtn.addEventListener('click', enterEdit);
+doneBtn.addEventListener('click', exitEdit);
+
+// 長押しで編集モードに入る（Sortable本体とは別の軽量タイマーで判定するので、
+// 編集モードに入るまでは touch-action を制限せず、普通のスクロールを妨げない）
+let pressTimer = null;
+let pressStartX = 0, pressStartY = 0;
+const PRESS_MOVE_TOLERANCE = 10; // px（指の微振動でキャンセルされないための許容範囲）
+
+grid.addEventListener('pointerdown', (e)=>{
+  const card = e.target.closest('.card');
+  if(!card || editing) return;
+  pressStartX = e.clientX;
+  pressStartY = e.clientY;
+  pressTimer = setTimeout(()=>{ enterEdit(); pressTimer = null; }, 450);
+});
+grid.addEventListener('pointermove', (e)=>{
+  if(!pressTimer) return;
+  const dx = e.clientX - pressStartX, dy = e.clientY - pressStartY;
+  if(Math.hypot(dx, dy) > PRESS_MOVE_TOLERANCE){
+    clearTimeout(pressTimer);
+    pressTimer = null;
+  }
+});
+['pointerup','pointercancel','pointerleave'].forEach(evt=>{
+  grid.addEventListener(evt, ()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } });
+});
+
+// 通常タップ：詳細を開けるカード（週間予報など）
+grid.addEventListener('click', (e)=>{
+  if(editing) return;
+  if(e.target.closest('[data-del]')) return;
+  const card = e.target.closest('.card[data-tap="1"]');
+  if(!card) return;
+  const id = card.getAttribute('data-id');
+  if(id === 'weekly' || id === 'todayWeather') openWeeklySheet();
+  else if(id === 'hourlyPrecip' || id === 'precipProb') openHourlySheet();
+  else if(id === 'hourlyPrecipAmount' || id === 'precip') openHourlyAmountSheet();
+  else if(id === 'rainRadar') openRadarSheet();
+  else if(id === 'affiliateSuggestion') openAffiliateLink();
+  else if(METRIC_CONFIG[id]) openMetricSheet(id);
+});
+
+/* ========================= 追加シート ========================= */
+function openSheet(){
+  const disabled = ALL_CARDS.filter(c=>!settings.enabled.includes(c.id));
+  if(disabled.length===0){
+    sheetList.innerHTML = `<div class="sheet-empty">すべてのカードが表示中です</div>`;
+  }else{
+    sheetList.innerHTML = disabled.map(c=>`
+      <div class="sheet-item">
+        <span>${c.label}</span>
+        <button data-add="${c.id}">追加</button>
+      </div>`).join('');
+  }
+  sheetList.querySelectorAll('[data-add]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.getAttribute('data-add');
+      settings.enabled.push(id);
+      if(!settings.order.includes(id)) settings.order.push(id);
+      saveSettings();
+      renderGrid();
+      openSheet();
+      if(id === 'affiliateSuggestion' && weatherData && weatherData.affiliateProduct === undefined) loadAffiliateProduct();
+      if(id === 'rainRadar' && weatherData && weatherData.radarPreview === undefined) loadRadarPreview();
+      if(id === 'weatherWarning' && weatherData && weatherData.warningText === undefined && activeLocation.lat != null) loadWeatherWarning(activeLocation.lat, activeLocation.lon);
+    });
+  });
+  overlay.classList.add('show');
+  sheet.classList.add('show');
+}
+function closeSheet(){
+  overlay.classList.remove('show');
+  sheet.classList.remove('show');
+  weeklySheet.classList.remove('show');
+  hourlySheet.classList.remove('show');
+  hourlyAmountSheet.classList.remove('show');
+  locationSheet.classList.remove('show');
+  metricSheet.classList.remove('show');
+  radarSheet.classList.remove('show');
+  installGuideSheet.classList.remove('show');
+  stopRadarPlay();
+}
+overlay.addEventListener('click', closeSheet);
+
+function resetToDefault(){
+  if(!confirm('カードの並び順と表示設定を初期状態に戻しますか？')) return;
+  settings = { order:[...DEFAULT_ORDER], enabled:[...DEFAULT_ENABLED] };
+  saveSettings();
+  renderGrid();
+  closeSheet();
+  exitEdit();
+}
+document.getElementById('resetBtn').addEventListener('click', resetToDefault);
+resetHeaderBtn.addEventListener('click', resetToDefault);
+
+/* ========================= 週間予報 詳細シート ========================= */
+function openWeeklySheet(){
+  if(!weatherData){ return; }
+  const daily = weatherData.daily;
+  let html = '';
+  for(let i=0;i<daily.time.length;i++){
+    html += `<div class="weekly-detail-row">
+      <span class="d">${fmtDay(daily.time[i], i)}</span>
+      <span class="ic">${weatherIcon(daily.weather_code[i])}</span>
+      <span class="pp num">☔ ${daily.precipitation_probability_max[i]}%</span>
+      <span class="temps">
+        <span class="hi num">${Math.round(daily.temperature_2m_max[i])}°</span>
+        <span class="lo num">${Math.round(daily.temperature_2m_min[i])}°</span>
+      </span>
+    </div>`;
+  }
+  weeklyList.innerHTML = html;
+  overlay.classList.add('show');
+  weeklySheet.classList.add('show');
+}
+
+/* ========================= 時間別降水確率 詳細シート ========================= */
+function openHourlySheet(){
+  if(!weatherData || !weatherData.hourly) return;
+  const h = weatherData.hourly;
+  const times = h.time, probs = h.precipProbability, idx = h.idx;
+  let html = '';
+  for(let i=idx; i<Math.min(idx+24, times.length); i++){
+    const d = new Date(times[i]);
+    const label = (i===idx) ? '今' : d.toLocaleTimeString('ja-JP',{hour:'2-digit'}).replace('時','時');
+    const p = probs[i] != null ? probs[i] : 0;
+    html += `<div class="hourly-detail-row">
+      <span class="t">${label}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${p}%;"></div></div>
+      <span class="pct num">${p}%</span>
+    </div>`;
+  }
+  hourlyList.innerHTML = html;
+  overlay.classList.add('show');
+  hourlySheet.classList.add('show');
+}
+
+/* ========================= 時間別降水量 詳細シート ========================= */
+function openHourlyAmountSheet(){
+  if(!weatherData || !weatherData.hourly) return;
+  const h = weatherData.hourly;
+  const times = h.time, amounts = h.precipAmount, idx = h.idx;
+  const windowSlice = amounts.slice(idx, Math.min(idx+24, times.length));
+  const scaleMax = Math.max(...windowSlice, 2);
+  let html = '';
+  for(let i=idx; i<Math.min(idx+24, times.length); i++){
+    const d = new Date(times[i]);
+    const label = (i===idx) ? '今' : d.toLocaleTimeString('ja-JP',{hour:'2-digit'}).replace('時','時');
+    const mm = amounts[i] != null ? amounts[i] : 0;
+    const pct = Math.min(100, Math.round((mm/scaleMax)*100));
+    html += `<div class="hourly-detail-row">
+      <span class="t">${label}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+      <span class="pct num">${mm.toFixed(1)}mm</span>
+    </div>`;
+  }
+  hourlyAmountList.innerHTML = html;
+  overlay.classList.add('show');
+  hourlyAmountSheet.classList.add('show');
+}
+
+/* ========================= 汎用 詳細シート（気温・湿度・風速など） ========================= */
+function openMetricSheet(cardId){
+  const cfg = METRIC_CONFIG[cardId];
+  if(!cfg || !weatherData || !weatherData.hourly) return;
+  const h = weatherData.hourly;
+  const times = h.time, idx = h.idx;
+  const series = h.series ? (h.series[cfg.key] || []) : [];
+  if(series.length === 0){
+    metricSheetList.innerHTML = `<div class="sheet-empty">データがありません</div>`;
+  }else{
+    const endIdx = Math.min(idx+24, times.length, series.length);
+    const windowSlice = series.slice(idx, endIdx).map(v => cfg.transform ? cfg.transform(v) : v);
+    const validVals = windowSlice.filter(v => v != null);
+    const maxV = Math.max(...validVals, 0);
+    const minV = Math.min(...validVals, 0);
+    const range = (maxV - minV) || 1;
+    const dirSeries = cfg.dirKey && h.series ? h.series[cfg.dirKey] : null;
+
+    let html = '';
+    for(let i=idx; i<endIdx; i++){
+      const d = new Date(times[i]);
+      const label = (i===idx) ? '今' : d.toLocaleTimeString('ja-JP',{hour:'2-digit'}).replace('時','時');
+      let v = series[i];
+      if(v == null){ continue; }
+      if(cfg.transform) v = cfg.transform(v);
+      const pct = Math.max(4, Math.round(((v - minV) / range) * 100));
+      const dirTxt = (dirSeries && dirSeries[i] != null) ? ` ${dirLabel(dirSeries[i])}` : '';
+      html += `<div class="hourly-detail-row">
+        <span class="t">${label}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+        <span class="pct num">${v.toFixed(cfg.decimals)}${cfg.unit}${dirTxt}</span>
+      </div>`;
+    }
+    metricSheetList.innerHTML = html || `<div class="sheet-empty">データがありません</div>`;
+  }
+  metricSheetTitle.textContent = cfg.title;
+  overlay.classList.add('show');
+  metricSheet.classList.add('show');
+}
+
+/* ========================= 雨雲レーダー ========================= */
+let radarMap = null;
+let radarLayer = null;
+let radarMarker = null;
+let radarFrames = [];
+let radarFrameIdx = 0;
+let radarPlayTimer = null;
+let radarHost = null;
+
+function openAffiliateLink(){
+  if(!weatherData) return;
+  if(weatherData.affiliateProduct && weatherData.affiliateProduct.url){
+    window.open(weatherData.affiliateProduct.url, '_blank', 'noopener');
+    return;
+  }
+  const s = getContextualSuggestion(weatherData);
+  const url = `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(s.query)}/`;
+  window.open(url, '_blank', 'noopener');
+}
+
+async function openRadarSheet(){
+  overlay.classList.add('show');
+  radarSheet.classList.add('show');
+  radarTimeLabel.textContent = '読み込み中…';
+  stopRadarPlay();
+
+  const lat = activeLocation.lat, lon = activeLocation.lon;
+  if(lat == null || lon == null || typeof L === 'undefined'){
+    radarTimeLabel.textContent = '地図を読み込めませんでした';
+    return;
+  }
+
+  if(!radarMap){
+    radarMap = L.map('radarMap', { zoomControl:true, attributionControl:true }).setView([lat, lon], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom:18,
+      attribution:'© OpenStreetMap contributors'
+    }).addTo(radarMap);
+    radarMarker = L.marker([lat, lon]).addTo(radarMap);
+  }else{
+    radarMap.setView([lat, lon], 7);
+    if(radarMarker) radarMap.removeLayer(radarMarker);
+    radarMarker = L.marker([lat, lon]).addTo(radarMap);
+  }
+  setTimeout(()=>{ if(radarMap) radarMap.invalidateSize(); }, 250);
+
+  try{
+    const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+    const data = await res.json();
+    if(!data.host){
+      radarTimeLabel.textContent = 'レーダーデータの取得に失敗しました';
+      return;
+    }
+    radarHost = data.host;
+    const past = (data.radar && data.radar.past) ? data.radar.past : [];
+    const nowcast = (data.radar && data.radar.nowcast) ? data.radar.nowcast : [];
+    radarFrames = [...past, ...nowcast].map((f,i,arr)=>{
+      // pastの最後（＝現在に一番近い実況コマ）より後ろは予測コマ扱いにする
+      return { time:f.time, path:f.path, isForecast: i >= past.length };
+    });
+    if(radarFrames.length === 0){
+      radarTimeLabel.textContent = 'レーダーデータがありません';
+      radarSlider.max = 0;
+      return;
+    }
+    radarSlider.max = radarFrames.length - 1;
+    // 初期表示は「現在に一番近い実況コマ」＝pastの最後
+    radarFrameIdx = Math.max(0, past.length - 1);
+    radarSlider.value = radarFrameIdx;
+    showRadarFrame(radarFrameIdx);
+  }catch(e){
+    radarTimeLabel.textContent = 'レーダーデータの取得に失敗しました';
+  }
+}
+
+function showRadarFrame(idx){
+  const frame = radarFrames[idx];
+  if(!frame || !radarMap || !radarHost) return;
+  if(radarLayer) radarMap.removeLayer(radarLayer);
+  radarLayer = L.tileLayer(`${radarHost}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
+    opacity:0.65, zIndex:10, maxNativeZoom:7
+  }).addTo(radarMap);
+  const d = new Date(frame.time * 1000);
+  const timeStr = d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  radarTimeLabel.textContent = (frame.isForecast ? '予測: ' : '観測: ') + timeStr;
+}
+
+const radarSlider = document.getElementById('radarSlider');
+radarSlider.addEventListener('input', ()=>{
+  stopRadarPlay();
+  radarFrameIdx = parseInt(radarSlider.value);
+  showRadarFrame(radarFrameIdx);
+});
+
+const radarPlayBtn = document.getElementById('radarPlayBtn');
+radarPlayBtn.addEventListener('click', ()=>{
+  if(radarPlayTimer){ stopRadarPlay(); }
+  else{ startRadarPlay(); }
+});
+function startRadarPlay(){
+  if(radarFrames.length <= 1) return;
+  radarPlayBtn.textContent = '❙❙';
+  radarPlayTimer = setInterval(()=>{
+    radarFrameIdx = (radarFrameIdx + 1) % radarFrames.length;
+    radarSlider.value = radarFrameIdx;
+    showRadarFrame(radarFrameIdx);
+  }, 600);
+}
+function stopRadarPlay(){
+  radarPlayBtn.textContent = '▶︎';
+  if(radarPlayTimer){ clearInterval(radarPlayTimer); radarPlayTimer = null; }
+}
+
+/* ========================= データ取得 ========================= */
+function setStatus(msg, show=true){
+  statusText.textContent = msg;
+  statusEl.classList.toggle('show', show);
+}
+
+async function fetchWeather(lat, lon, placeName){
+  setStatus('データを取得しています…');
+  const params = new URLSearchParams({
+    latitude: lat, longitude: lon,
+    current: 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+    hourly: 'weather_code,visibility,dew_point_2m,snow_depth,precipitation_probability,precipitation,surface_pressure,cape,temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,uv_index,freezing_level_height,shortwave_radiation,soil_temperature_0cm',
+    daily: 'sunrise,sunset,uv_index_max,temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunshine_duration,shortwave_radiation_sum,precipitation_hours',
+    timezone: 'auto',
+    forecast_days: 7,
+    past_hours: 6,
+    wind_speed_unit: 'ms'
+  });
+  const aqParams = new URLSearchParams({
+    latitude: lat, longitude: lon,
+    current: 'pm2_5,pm10,dust,european_aqi,ozone',
+    hourly: 'pm2_5,european_aqi,ozone',
+    past_hours: 6,
+    timezone: 'auto'
+  });
+  const marineParams = new URLSearchParams({
+    latitude: lat, longitude: lon,
+    current: 'wave_height,wave_period,wave_direction,sea_surface_temperature,swell_wave_height,swell_wave_period,wind_wave_height,wind_wave_period',
+    hourly: 'wave_height,sea_surface_temperature',
+    past_hours: 6,
+    timezone: 'auto'
+  });
+  const [wxRes, elevRes, aqRes, marineRes] = await Promise.all([
+    fetch(`https://api.open-meteo.com/v1/forecast?${params}`),
+    fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`),
+    fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${aqParams}`).catch(()=>null),
+    fetch(`https://marine-api.open-meteo.com/v1/marine?${marineParams}`).catch(()=>null)
+  ]);
+  if(!wxRes.ok) throw new Error('weather fetch failed');
+  const wx = await wxRes.json();
+  const elevJson = elevRes.ok ? await elevRes.json() : {elevation:[null]};
+  const aqJson = (aqRes && aqRes.ok) ? await aqRes.json() : null;
+  const marineJson = (marineRes && marineRes.ok) ? await marineRes.json() : null;
+
+  const hourIdx = findHourIndex(wx.hourly ? wx.hourly.time : []);
+  const hourly = wx.hourly ? {
+    time: wx.hourly.time,
+    idx: hourIdx,
+    visibility: wx.hourly.visibility ? wx.hourly.visibility[hourIdx] : null,
+    dewPoint: wx.hourly.dew_point_2m ? wx.hourly.dew_point_2m[hourIdx] : null,
+    snowDepth: wx.hourly.snow_depth ? wx.hourly.snow_depth[hourIdx] : null,
+    thunderToday: (wx.hourly.weather_code || []).slice(hourIdx, hourIdx+24).some(c => [95,96,99].includes(c)),
+    precipProbability: wx.hourly.precipitation_probability || [],
+    precipAmount: wx.hourly.precipitation || [],
+    cape: wx.hourly.cape ? wx.hourly.cape[hourIdx] : null,
+    pressureNow: wx.hourly.surface_pressure ? wx.hourly.surface_pressure[hourIdx] : null,
+    pressure3hAgo: (wx.hourly.surface_pressure && hourIdx>=3) ? wx.hourly.surface_pressure[hourIdx-3] : null,
+    freezingLevelNow: wx.hourly.freezing_level_height ? wx.hourly.freezing_level_height[hourIdx] : null,
+    solarRadiationNow: wx.hourly.shortwave_radiation ? wx.hourly.shortwave_radiation[hourIdx] : null,
+    soilTempNow: wx.hourly.soil_temperature_0cm ? wx.hourly.soil_temperature_0cm[hourIdx] : null,
+    waveHeightNow: (marineJson && marineJson.current) ? marineJson.current.wave_height : null,
+    wavePeriodNow: (marineJson && marineJson.current) ? marineJson.current.wave_period : null,
+    seaTempNow: (marineJson && marineJson.current) ? marineJson.current.sea_surface_temperature : null,
+    swellHeightNow: (marineJson && marineJson.current) ? marineJson.current.swell_wave_height : null,
+    swellPeriodNow: (marineJson && marineJson.current) ? marineJson.current.swell_wave_period : null,
+    windWaveHeightNow: (marineJson && marineJson.current) ? marineJson.current.wind_wave_height : null,
+    windWavePeriodNow: (marineJson && marineJson.current) ? marineJson.current.wind_wave_period : null,
+    aqiNow: (aqJson && aqJson.hourly && aqJson.hourly.european_aqi) ? aqJson.hourly.european_aqi[hourIdx] : null,
+    ozoneNow: (aqJson && aqJson.hourly && aqJson.hourly.ozone) ? aqJson.hourly.ozone[hourIdx] : null,
+    // 各カードの詳細シート（24時間推移）用の生配列
+    series: {
+      temp: wx.hourly.temperature_2m || [],
+      feels: wx.hourly.apparent_temperature || [],
+      humidity: wx.hourly.relative_humidity_2m || [],
+      wind: wx.hourly.wind_speed_10m || [],
+      windDir: wx.hourly.wind_direction_10m || [],
+      gust: wx.hourly.wind_gusts_10m || [],
+      cloud: wx.hourly.cloud_cover || [],
+      pressure: wx.hourly.surface_pressure || [],
+      uv: wx.hourly.uv_index || [],
+      visibility: wx.hourly.visibility || [],
+      dewpoint: wx.hourly.dew_point_2m || [],
+      cape: wx.hourly.cape || [],
+      airQuality: (aqJson && aqJson.hourly) ? (aqJson.hourly.pm2_5 || []) : [],
+      freezingLevel: wx.hourly.freezing_level_height || [],
+      solarRadiation: wx.hourly.shortwave_radiation || [],
+      soilTemp: wx.hourly.soil_temperature_0cm || [],
+      waveHeight: (marineJson && marineJson.hourly) ? (marineJson.hourly.wave_height || []) : [],
+      seaTemp: (marineJson && marineJson.hourly) ? (marineJson.hourly.sea_surface_temperature || []) : [],
+      aqi: (aqJson && aqJson.hourly) ? (aqJson.hourly.european_aqi || []) : [],
+      ozone: (aqJson && aqJson.hourly) ? (aqJson.hourly.ozone || []) : []
+    }
+  } : {};
+
+  const now = new Date();
+  const moonIllum = (typeof SunCalc !== 'undefined') ? SunCalc.getMoonIllumination(now) : null;
+  const moonTimes = (typeof SunCalc !== 'undefined') ? SunCalc.getMoonTimes(now, lat, lon) : null;
+
+  weatherData = {
+    current: wx.current,
+    daily: wx.daily,
+    elevation: elevJson.elevation ? elevJson.elevation[0] : null,
+    hourly,
+    airQuality: aqJson ? aqJson.current : null,
+    moon: { illum: moonIllum, times: moonTimes }
+  };
+  setStatus('', false);
+  renderGrid();
+  if(placeName){
+    placeLabel.textContent = placeName;
+  }else{
+    reverseGeocode(lat, lon);
+  }
+  markSplashReady();
+  if(settings.enabled.includes('affiliateSuggestion')) loadAffiliateProduct();
+  if(settings.enabled.includes('rainRadar')) loadRadarPreview();
+  if(settings.enabled.includes('weatherWarning')) loadWeatherWarning(lat, lon);
+}
+
+function findHourIndex(times){
+  if(!times || times.length===0) return 0;
+  const now = new Date();
+  let idx = 0;
+  for(let i=0;i<times.length;i++){
+    if(new Date(times[i]) <= now) idx = i; else break;
+  }
+  return idx;
+}
+
+async function reverseGeocode(lat, lon){
+  try{
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=14&accept-language=ja`);
+    if(!res.ok) throw 0;
+    const j = await res.json();
+    const a = j.address || {};
+    const name = a.suburb || a.neighbourhood || a.town || a.city || a.county || '現在地';
+    placeLabel.textContent = name;
+  }catch(e){
+    placeLabel.textContent = `緯度 ${lat.toFixed(3)}, 経度 ${lon.toFixed(3)}`;
+  }
+}
+
+function startSpin(){ headerRefreshBtn.classList.add('spinning'); }
+function stopSpin(){ headerRefreshBtn.classList.remove('spinning'); }
+
+let activeLocation = { lat:null, lon:null, isGPS:true, name:null };
+
+function getLocationAndFetch(){
+  setStatus('位置情報を取得しています…');
+  startSpin();
+  if(!navigator.geolocation){
+    setStatus('この端末では位置情報が利用できません');
+    stopSpin();
+    markSplashReady();
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      activeLocation = { lat:pos.coords.latitude, lon:pos.coords.longitude, isGPS:true, name:null };
+      updateFavToggleBtn();
+      fetchWeather(activeLocation.lat, activeLocation.lon)
+        .catch(()=>{ setStatus('データの取得に失敗しました。時間をおいて再試行してください'); markSplashReady(); })
+        .finally(stopSpin);
+    },
+    err => {
+      setStatus('位置情報を取得できませんでした。設定を確認してください');
+      placeLabel.textContent = '位置情報オフ';
+      stopSpin();
+      markSplashReady();
+    },
+    { enableHighAccuracy:true, timeout:15000, maximumAge:60000 }
+  );
+}
+
+function refreshCurrentView(){
+  if(activeLocation.isGPS){
+    getLocationAndFetch();
+    return;
+  }
+  startSpin();
+  fetchWeather(activeLocation.lat, activeLocation.lon, activeLocation.name)
+    .catch(()=> setStatus('データの取得に失敗しました。時間をおいて再試行してください'))
+    .finally(stopSpin);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', refreshCurrentView);
+headerRefreshBtn.addEventListener('click', refreshCurrentView);
+
+/* ========================= お気に入り地点 ========================= */
+const FAV_KEY = 'gc_favorites_v1';
+function loadFavorites(){
+  try{
+    const raw = localStorage.getItem(FAV_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  }catch(e){ return []; }
+}
+function saveFavorites(list){
+  localStorage.setItem(FAV_KEY, JSON.stringify(list));
+}
+let favorites = loadFavorites();
+
+function isFavorite(lat, lon){
+  return favorites.some(f => Math.abs(f.lat-lat)<0.0001 && Math.abs(f.lon-lon)<0.0001);
+}
+function toggleFavorite(){
+  if(activeLocation.isGPS || activeLocation.lat==null) return;
+  const idx = favorites.findIndex(f => Math.abs(f.lat-activeLocation.lat)<0.0001 && Math.abs(f.lon-activeLocation.lon)<0.0001);
+  if(idx >= 0){
+    favorites.splice(idx, 1);
+  }else{
+    favorites.push({ lat:activeLocation.lat, lon:activeLocation.lon, name:activeLocation.name });
+  }
+  saveFavorites(favorites);
+  updateFavToggleBtn();
+}
+function updateFavToggleBtn(){
+  const btn = document.getElementById('favToggleBtn');
+  if(activeLocation.isGPS || activeLocation.lat==null){
+    btn.classList.remove('visible');
+    return;
+  }
+  btn.classList.add('visible');
+  const active = isFavorite(activeLocation.lat, activeLocation.lon);
+  btn.classList.toggle('active', active);
+  btn.textContent = active ? '★' : '☆';
+}
+document.getElementById('favToggleBtn').addEventListener('click', toggleFavorite);
+
+function renderFavoritesList(){
+  const container = document.getElementById('favoritesList');
+  if(favorites.length === 0){ container.innerHTML = ''; return; }
+  let html = '<div class="fav-section-label">お気に入り</div>';
+  favorites.forEach((f, i)=>{
+    html += `<div class="fav-row">
+      <button class="fav-name" data-idx="${i}">★ ${f.name}</button>
+      <button class="fav-del" data-idx="${i}">✕</button>
+    </div>`;
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.fav-name').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const f = favorites[parseInt(btn.getAttribute('data-idx'))];
+      selectSearchedLocation(f.lat, f.lon, f.name);
+    });
+  });
+  container.querySelectorAll('.fav-del').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      favorites.splice(parseInt(btn.getAttribute('data-idx')), 1);
+      saveFavorites(favorites);
+      renderFavoritesList();
+      updateFavToggleBtn();
+    });
+  });
+}
+
+/* ========================= 地点検索 ========================= */
+const locationSheet = document.getElementById('locationSheet');
+const locationSearchInput = document.getElementById('locationSearchInput');
+const locationResults = document.getElementById('locationResults');
+let locationSearchTimer = null;
+
+function openLocationSheet(){
+  locationResults.innerHTML = '';
+  locationSearchInput.value = '';
+  renderFavoritesList();
+  overlay.classList.add('show');
+  locationSheet.classList.add('show');
+  setTimeout(()=> locationSearchInput.focus(), 200);
+}
+document.getElementById('locationSearchBtn').addEventListener('click', openLocationSheet);
+
+locationSearchInput.addEventListener('input', ()=>{
+  clearTimeout(locationSearchTimer);
+  const q = locationSearchInput.value.trim();
+  if(q.length < 2){ locationResults.innerHTML = ''; return; }
+  locationSearchTimer = setTimeout(()=> searchLocations(q), 400);
+});
+
+async function searchLocations(query){
+  locationResults.innerHTML = `<div class="sheet-empty">検索中…</div>`;
+  try{
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&namedetails=1&limit=8&accept-language=ja`);
+    const data = await res.json();
+    const results = data || [];
+    if(results.length===0){
+      locationResults.innerHTML = `<div class="sheet-empty">見つかりませんでした</div>`;
+      return;
+    }
+    locationResults.innerHTML = results.map((r,i)=>{
+      const name = (r.namedetails && r.namedetails.name) || r.display_name.split(',')[0];
+      // display_name の先頭（施設名）を除いた残りを住所の補足として使う
+      const sub = r.display_name.split(',').slice(1).join(',').trim().replace(/^,\s*/, '');
+      return `<button class="location-result" data-idx="${i}">
+        <span class="name">${name}</span>
+        <span class="sub">${sub}</span>
+      </button>`;
+    }).join('');
+    locationResults.querySelectorAll('.location-result').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const r = results[parseInt(btn.getAttribute('data-idx'))];
+        const name = (r.namedetails && r.namedetails.name) || r.display_name.split(',')[0];
+        selectSearchedLocation(parseFloat(r.lat), parseFloat(r.lon), name);
+      });
+    });
+  }catch(e){
+    locationResults.innerHTML = `<div class="sheet-empty">検索に失敗しました</div>`;
+  }
+}
+
+function selectSearchedLocation(lat, lon, name){
+  activeLocation = { lat, lon, isGPS:false, name };
+  updateFavToggleBtn();
+  closeSheet();
+  startSpin();
+  fetchWeather(lat, lon, name)
+    .catch(()=> setStatus('データの取得に失敗しました。時間をおいて再試行してください'))
+    .finally(stopSpin);
+}
+
+document.getElementById('useGpsBtn').addEventListener('click', ()=>{
+  closeSheet();
+  getLocationAndFetch();
+});
+
+/* ========================= 方位磁針(端末の向きに連動) ========================= */
+function handleOrientation(e){
+  let heading = null;
+  if(typeof e.webkitCompassHeading === 'number'){
+    heading = e.webkitCompassHeading; // iOS Safari: 北からの時計回りの角度、そのまま使える
+  }else if(e.absolute === true && e.alpha != null){
+    heading = (360 - e.alpha) % 360; // Android の絶対方位
+  }
+  if(heading == null) return;
+  const rotor = document.querySelector('.compassRotor');
+  if(rotor) rotor.style.transform = `rotate(${-heading}deg)`;
+  document.querySelectorAll('.compassLetter').forEach(el=>{
+    el.style.transform = `rotate(${heading}deg)`; // 文字盤の回転を打ち消して文字は常に正立
+  });
+}
+
+function initCompass(){
+  if(compassActive) return;
+  const start = () => {
+    compassActive = true;
+    const hint = document.getElementById('compassHint');
+    if(hint) hint.textContent = '';
+  };
+  if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+    DeviceOrientationEvent.requestPermission().then(state=>{
+      if(state === 'granted'){
+        window.addEventListener('deviceorientation', handleOrientation, true);
+        start();
+      }
+    }).catch(()=>{});
+  }else if(typeof DeviceOrientationEvent !== 'undefined'){
+    window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+    window.addEventListener('deviceorientation', handleOrientation, true);
+    start();
+  }
+}
+
+/* ========================= スプラッシュ画面 ========================= */
+const splashEl = document.getElementById('splash');
+const splashLoadingEl = document.getElementById('splashLoading');
+const splashGateEl = document.getElementById('splashGate');
+let splashMinTimeDone = false;
+let splashDataReady = false;
+setTimeout(()=>{ splashMinTimeDone = true; trySplashHide(); }, 2500);
+function trySplashHide(){
+  if(splashMinTimeDone && splashDataReady){
+    // 読み込みが終わったら、コンパスのぐるぐるからセンサー許可ボタンに切り替える
+    splashLoadingEl.classList.add('hide');
+    splashGateEl.classList.add('show');
+  }
+}
+function markSplashReady(){ splashDataReady = true; trySplashHide(); }
+
+document.getElementById('sensorPermBtn').addEventListener('click', ()=>{
+  initCompass();
+  splashEl.classList.add('hide');
+});
+
+const installGuideSheet = document.getElementById('installGuideSheet');
+document.getElementById('installGuideLink').addEventListener('click', (e)=>{
+  e.preventDefault();
+  splashEl.classList.add('hide');
+  overlay.classList.add('show');
+  installGuideSheet.classList.add('show');
+});
+document.getElementById('footerGuideLink').addEventListener('click', (e)=>{
+  e.preventDefault();
+  overlay.classList.add('show');
+  installGuideSheet.classList.add('show');
+});
+
+document.querySelectorAll('.guide-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    const os = tab.getAttribute('data-os');
+    document.getElementById('guideIos').style.display = (os === 'ios') ? '' : 'none';
+    document.getElementById('guideAndroid').style.display = (os === 'android') ? '' : 'none';
+  });
+});
+
+/* ========================= 初期化 ========================= */
+renderGrid();
+getLocationAndFetch();
+
+// ホーム画面から起動済み（＝追加済み）の場合は案内リンクを表示しない
+if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true){
+  const guideLink = document.getElementById('installGuideLink');
+  if(guideLink) guideLink.style.display = 'none';
+}
+
+if('serviceWorker' in navigator){
+  const hadControllerBefore = !!navigator.serviceWorker.controller;
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+  // 新しいバージョンのService Workerに切り替わったら、ユーザー操作なしで
+  // 自動的に1回だけページを再読み込みする（手動でキャッシュを消してもらう必要をなくす）。
+  // 初回インストール時は無駄なリロードをしないよう、既に何かが制御していた場合のみ対象にする。
+  let swRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    if(swRefreshing || !hadControllerBefore) return;
+    swRefreshing = true;
+    window.location.reload();
+  });
+}
+</script>
+</body>
+</html>
