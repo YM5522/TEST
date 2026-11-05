@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ボール選択アンケート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* Layout: one narrow column, question cards stacked, send button pinned in flow at the end */
+:root {
+  --bg: #f3f5f2;
+  --surface: #ffffff;
+  --fg: #1b231d;
+  --muted: #5e6b61;
+  --line: #d6ddd7;
+  --accent: #1f6b45;
+  --accent-ink: #ffffff;
+  --accent-soft: #e3efe7;
+  --send: #1f6b45;
+  --font-display: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --font-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121714; --surface: #1b221e; --fg: #e6ece7; --muted: #9aa79e;
+    --line: #2e3832; --accent: #5fbf8a; --accent-ink: #0d1510; --accent-soft: #213128;
+    --send: #2f8a5c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121714; --surface: #1b221e; --fg: #e6ece7; --muted: #9aa79e;
+  --line: #2e3832; --accent: #5fbf8a; --accent-ink: #0d1510; --accent-soft: #213128;
+  --send: #2f8a5c; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+}
+.wrap {
+  max-width: 480px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 40px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+header { display: flex; flex-direction: column; gap: 6px; }
+.eyebrow { font-size: 12px; letter-spacing: .12em; color: var(--accent); font-weight: 700; }
+h1 { font-family: var(--font-display); font-size: 26px; line-height: 1.3; margin: 0; text-wrap: balance; }
+.lead { margin: 0; color: var(--muted); font-size: 14px; }
+
+.q {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  padding: 18px; display: flex; flex-direction: column; gap: 12px;
+}
+.q-label { display: flex; align-items: baseline; gap: 10px; }
+.q-num { font-family: var(--font-display); font-weight: 700; color: var(--accent); font-size: 14px; }
+.q-text { font-weight: 700; font-size: 16px; }
+
+input[type="text"] {
+  width: 100%; box-sizing: border-box; font: inherit; color: var(--fg);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; font-size: 16px;
+}
+input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+
+.choices { display: grid; gap: 10px; }
+.choice { position: relative; }
+.choice input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.choice span {
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+  font-weight: 700; font-family: var(--font-display); font-size: 18px; letter-spacing: .02em;
+  background: var(--bg); transition: background .15s, border-color .15s;
+}
+.choice span::before {
+  content: ""; width: 18px; height: 18px; border-radius: 50%; flex: none;
+  border: 2px solid var(--line); box-sizing: border-box; background: var(--surface);
+}
+.choice input:checked + span { border-color: var(--accent); background: var(--accent-soft); }
+.choice input:checked + span::before { border: 6px solid var(--accent); }
+.choice input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.preview {
+  border: 1px dashed var(--line); border-radius: 10px; padding: 12px 14px;
+  font-size: 14px; color: var(--muted); white-space: pre-wrap; margin: 0;
+  font-family: var(--font-body);
+}
+.send {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  text-decoration: none; font-weight: 700; font-size: 17px;
+  background: var(--send); color: #ffffff; border-radius: 999px; padding: 16px;
+  transition: opacity .15s;
+}
+.send[aria-disabled="true"] { opacity: .35; pointer-events: none; }
+.apps { display: flex; flex-direction: column; gap: 8px; }
+.apps-label { margin: 0; font-size: 12px; color: var(--muted); text-align: center; letter-spacing: .04em; }
+.apps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.app {
+  display: flex; align-items: center; justify-content: center; text-decoration: none;
+  border: 1px solid var(--accent); color: var(--accent); background: var(--surface);
+  border-radius: 999px; padding: 12px 8px; font-weight: 700; font-size: 15px;
+}
+.app[aria-disabled="true"] { opacity: .35; pointer-events: none; }
+.app:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.send:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.hint { margin: 0; font-size: 13px; color: var(--muted); text-align: center; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<style>body{margin:0}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">BALL SURVEY</div>
+    <h1>使用ボールのアンケート</h1>
+    <p class="lead">2問だけです。回答したら下のボタンを押し、開いたメールをそのまま送信してください。</p>
+  </header>
+
+  <form id="form" class="wrap-inner" style="display:flex;flex-direction:column;gap:18px" novalidate>
+    <section class="q">
+      <label class="q-label" for="name"><span class="q-num">問1</span><span class="q-text">名前を入力してください</span></label>
+      <input type="text" id="name" name="name" placeholder="例：山田 太郎" autocomplete="name">
+    </section>
+
+    <section class="q" role="radiogroup" aria-labelledby="q2">
+      <div class="q-label" id="q2"><span class="q-num">問2</span><span class="q-text">ボールを選んでください</span></div>
+      <div class="choices">
+        <label class="choice"><input type="radio" id="ball-x" name="ball" value="TOUR B X"><span>TOUR B X</span></label>
+        <label class="choice"><input type="radio" id="ball-xs" name="ball" value="TOUR B XS"><span>TOUR B XS</span></label>
+      </div>
+    </section>
+
+    <div class="q-label"><span class="q-num">件名</span><span id="fname" style="font-weight:700;word-break:break-all"></span></div>
+    <pre class="preview" id="preview" aria-live="polite"></pre>
+
+    <a class="send" id="send" href="#" aria-disabled="true">メールで送る</a>
+    <div class="apps">
+      <p class="apps-label">iPhoneで別のアプリを使う場合</p>
+      <div class="apps-row">
+        <a class="app" id="send-gmail" href="#" aria-disabled="true">Gmailで送る</a>
+        <a class="app" id="send-outlook" href="#" aria-disabled="true">Outlookで送る</a>
+      </div>
+    </div>
+    <p class="hint" id="hint">名前とボールを入力するとボタンが押せます</p>
+  </form>
+</div>
+
+<script>
+(function () {
+  // 送り先
+  var TO = ['seiya.kajii@bridgestone.com', 'yusuke.mori1@bridgestone.com'];
+
+  var form = document.getElementById('form');
+  var nameEl = document.getElementById('name');
+  var send = document.getElementById('send');
+  var gmail = document.getElementById('send-gmail');
+  var outlook = document.getElementById('send-outlook');
+  var preview = document.getElementById('preview');
+  var subjEl = document.getElementById('fname');
+  var hint = document.getElementById('hint');
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function ymd(d) { return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); }
+  function stamp(d) { return d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function clean(name) { return name.replace(/[\s　]/g, ''); }
+
+  function current() {
+    var checked = form.querySelector('input[name="ball"]:checked');
+    return { name: nameEl.value.trim(), ball: checked ? checked.value : '' };
+  }
+  function subject(v, d) { return ymd(d) + clean(v.name); }
+  function body(v, d) {
+    return '【ボールアンケート回答】\n回答日時：' + stamp(d) + '\n名前：' + v.name + '\nボール：' + v.ball + '\n';
+  }
+
+  function update() {
+    var v = current(), d = new Date();
+    var ready = v.name !== '' && v.ball !== '';
+    subjEl.textContent = ready ? subject(v, d) : '（入力すると表示されます）';
+    preview.textContent = body({ name: v.name || '（未入力）', ball: v.ball || '（未選択）' }, d);
+    if (ready) {
+      send.href = 'mailto:' + TO.join(',') +
+        '?subject=' + encodeURIComponent(subject(v, d)) +
+        '&body=' + encodeURIComponent(body(v, d));
+      var q = 'to=' + encodeURIComponent(TO.join(',')) +
+        '&subject=' + encodeURIComponent(subject(v, d)) +
+        '&body=' + encodeURIComponent(body(v, d));
+      gmail.href = 'googlegmail://co?' + q;
+      outlook.href = 'ms-outlook://compose?' + q;
+      [send, gmail, outlook].forEach(function (a) { a.setAttribute('aria-disabled', 'false'); });
+      hint.textContent = 'タップするとメールアプリが開きます。宛先と件名は入力済みなので、そのまま送信してください';
+    } else {
+      [send, gmail, outlook].forEach(function (a) { a.href = '#'; a.setAttribute('aria-disabled', 'true'); });
+      hint.textContent = '名前とボールを入力するとボタンが押せます';
+    }
+  }
+
+  form.addEventListener('input', update);
+  form.addEventListener('change', update);
+  form.addEventListener('submit', function (e) { e.preventDefault(); });
+  update();
+})();
+</script>
+</body>
+</html>
